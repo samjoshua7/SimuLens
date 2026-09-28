@@ -200,14 +200,14 @@ export function OfficeStatsBar({
 
   return (
     <div
-      className="w-full px-4 py-2 border-b flex items-center justify-between gap-3 flex-wrap select-none transition-all shadow-sm z-30"
+      className="w-full px-3 py-1.5 border-b flex items-center justify-between gap-2 overflow-x-auto scrollbar-none select-none transition-all shadow-xs z-30 shrink-0"
       style={{
         backgroundColor: 'var(--bg-primary)',
         borderColor: 'var(--border)',
       }}
     >
       {/* Left: Overall Office-System Statistics & Resource Pools Cards */}
-      <div className="flex items-center gap-2 text-xs flex-wrap">
+      <div className="flex items-center gap-1.5 text-xs shrink-0 flex-nowrap">
         {/* Realtime link status */}
         <div className="flex items-center gap-1.5 pl-1 pr-2">
           <div className="relative flex items-center justify-center">
@@ -356,12 +356,12 @@ export function OfficeStatsBar({
       </div>
 
       {/* Right: Map Controls, Filters & Navigation */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-1.5 shrink-0 flex-nowrap">
         {/* Auto-Arrange Floor Plan Button */}
         {onAutoArrangeLayout && (
           <button
             onClick={onAutoArrangeLayout}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 text-xs font-semibold transition-all shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-all shadow-xs"
             title="Auto-arrange machines in clean bays below resource stations"
           >
             <LayoutGrid className="w-3.5 h-3.5 text-indigo-500" />
@@ -419,7 +419,7 @@ export function OfficeStatsBar({
         <Link
           href={`/dashboard/${orgSlug}/${branchId}/simulation`}
           target="_blank"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-90 shadow-sm"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-90 shadow-xs"
           title="Open Central Multi-Machine Console in separate tab/window (PC2 setup)"
         >
           <span>PC2 Console</span>
@@ -430,16 +430,16 @@ export function OfficeStatsBar({
         {onToggleAiChat && (
           <button
             onClick={onToggleAiChat}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-xs ${
               isAiChatOpen
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 border-indigo-400 text-white shadow-indigo-500/25 ring-2 ring-indigo-500/30'
-                : 'bg-slate-900 border-indigo-500/40 text-indigo-400 hover:bg-slate-800'
+                : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-slate-900 dark:border-indigo-500/40 dark:text-indigo-400 dark:hover:bg-slate-800'
             }`}
             title="Open AI Causal Copilot Chat & Hotspot Diagnostics (Challenge #44)"
           >
-            <Sparkles className={`w-3.5 h-3.5 ${isAiChatOpen ? 'animate-spin' : 'text-indigo-400'}`} />
+            <Sparkles className={`w-3.5 h-3.5 ${isAiChatOpen ? 'animate-spin' : 'text-indigo-500 dark:text-indigo-400'}`} />
             <span>AI Copilot</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
           </button>
         )}
 

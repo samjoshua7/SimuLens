@@ -66,7 +66,7 @@ export function RightSideAIChat({
     {
       id: 'welcome-1',
       role: 'assistant',
-      content: `### 👋 Welcome to SimuLens Causal AI Copilot\n\nI am your **Uncertainty-Aware Causal World Model Copilot** for this industrial facility.\n\nUnder Challenge #44 guidelines, I support the four core causal abilities:\n1. **Next-State Prediction** with 90% conformal uncertainty spreads\n2. **Action-Conditioned Trajectory** rollout over chosen horizons\n3. **Deliberate Interventions** via $do(X=x)$ graph surgery\n4. **Counterfactual "What-If"** queries holding abducted noise $\\boldsymbol{\\epsilon}_t$ invariant\n\nSelect a machine or ask me anything to run a simulation or diagnose thermal bottlenecks!`,
+      content: `### 👋 Welcome to SimuLens Causal AI Copilot\n\nI am your **Uncertainty-Aware Causal World Model Copilot** for this industrial facility.\n\nUnder Challenge #44 guidelines, I support the four core causal abilities:\n1. **Next-State Prediction** with 90% conformal uncertainty spreads\n2. **Action-Conditioned Trajectory** rollout over chosen horizons\n3. **Deliberate Interventions** via do(X = x) graph surgery\n4. **Counterfactual "What-If"** queries holding abducted noise ε_t invariant\n\nSelect a machine or ask me anything to run a simulation or diagnose thermal bottlenecks!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       suggestions: [
         'Diagnose plant health and hotspots',
@@ -408,24 +408,38 @@ export function RightSideAIChat({
 
   return (
     <aside
-      className="h-full w-full md:w-1/2 lg:w-1/2 xl:w-1/2 shrink-0 border-l border-slate-700/80 bg-slate-900/95 backdrop-blur-xl shadow-2xl flex flex-col transition-all duration-300 ease-in-out select-text text-slate-100 overflow-hidden z-30"
+      className="h-full w-[380px] md:w-[420px] lg:w-[450px] max-w-[50vw] shrink-0 border-l flex flex-col transition-all duration-300 ease-in-out select-text overflow-hidden z-20 shadow-lg"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        borderColor: 'var(--border)',
+        color: 'var(--text-primary)',
+      }}
       aria-label="SimuLens Causal AI Copilot"
     >
-
       {/* 1. Header Bar */}
-      <div className="shrink-0 p-3.5 border-b border-slate-700/80 bg-slate-950/60 flex items-center justify-between">
+      <div
+        className="shrink-0 p-3.5 border-b flex items-center justify-between"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border)',
+        }}
+      >
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Sparkles className="w-4 h-4 text-white animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-xs tracking-wide text-white">SimuLens AI Copilot</span>
-              <span className="px-1.5 py-0.2 bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[9px] font-mono rounded font-semibold uppercase">
+              <span className="font-semibold text-xs tracking-wide" style={{ color: 'var(--text-primary)' }}>
+                SimuLens AI Copilot
+              </span>
+              <span className="px-1.5 py-0.5 bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/30 text-indigo-600 dark:text-indigo-300 text-[9px] font-mono rounded font-semibold uppercase">
                 SCM · Claude 3.5
               </span>
             </div>
-            <p className="text-[10px] text-slate-400">Challenge #44 Causal World Model</p>
+            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              Challenge #44 Causal World Model
+            </p>
           </div>
         </div>
 
@@ -435,14 +449,14 @@ export function RightSideAIChat({
               setMessages([messages[0]]);
               setAppliedActions({});
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
             title="Clear Chat History"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
             title="Close AI Copilot"
           >
             <X className="w-4 h-4" />
@@ -451,11 +465,17 @@ export function RightSideAIChat({
       </div>
 
       {/* 2. Target Machine & Plant Health HUD */}
-      <div className="shrink-0 p-2.5 bg-slate-950/40 border-b border-slate-800 space-y-2">
+      <div
+        className="shrink-0 p-2.5 border-b space-y-2"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border)',
+        }}
+      >
         {/* Machine Target Selector */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1">
-            <Cpu className="w-3 h-3 text-indigo-400" /> Focus Unit:
+          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Cpu className="w-3 h-3 text-indigo-500 dark:text-indigo-400" /> Focus Unit:
           </span>
           <select
             value={activeMachineId}
@@ -463,45 +483,58 @@ export function RightSideAIChat({
               setActiveMachineId(e.target.value);
               onSelectMachine(e.target.value);
             }}
-            className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500 max-w-[240px] truncate"
+            className="border text-xs rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500 max-w-[230px] truncate shadow-xs"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)',
+            }}
           >
             {machines.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.label} ({m.machine_type}) — {Number(getMachineTelemetry(m).temperature_c || 45).toFixed(1)}°C
               </option>
             ))}
-
           </select>
         </div>
 
         {/* Live Health Strip */}
         <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-          <div className="bg-slate-850/80 p-1.5 rounded-md border border-slate-800 flex items-center gap-1.5">
-            <Activity className="w-3 h-3 text-emerald-400 shrink-0" />
+          <div
+            className="p-1.5 rounded-lg border flex items-center gap-1.5 shadow-xs"
+            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+          >
+            <Activity className="w-3 h-3 text-emerald-500 shrink-0" />
             <div>
-              <div className="text-[9px] text-slate-400">Avg Load</div>
-              <div className="font-mono font-semibold text-slate-200">{avgLoad}%</div>
+              <div className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>Avg Load</div>
+              <div className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{avgLoad}%</div>
             </div>
           </div>
-          <div className="bg-slate-850/80 p-1.5 rounded-md border border-slate-800 flex items-center gap-1.5">
-            <Thermometer className="w-3 h-3 text-amber-400 shrink-0" />
+          <div
+            className="p-1.5 rounded-lg border flex items-center gap-1.5 shadow-xs"
+            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+          >
+            <Thermometer className="w-3 h-3 text-amber-500 shrink-0" />
             <div>
-              <div className="text-[9px] text-slate-400">Peak Temp</div>
-              <div className="font-mono font-semibold text-slate-200">{maxTemp.toFixed(1)}°C</div>
+              <div className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>Peak Temp</div>
+              <div className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{maxTemp.toFixed(1)}°C</div>
             </div>
           </div>
-          <div className="bg-slate-850/80 p-1.5 rounded-md border border-slate-800 flex items-center gap-1.5">
-            <ShieldCheck className="w-3 h-3 text-indigo-400 shrink-0" />
+          <div
+            className="p-1.5 rounded-lg border flex items-center gap-1.5 shadow-xs"
+            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+          >
+            <ShieldCheck className="w-3 h-3 text-indigo-500 shrink-0" />
             <div>
-              <div className="text-[9px] text-slate-400">Conformal</div>
-              <div className="font-mono font-semibold text-indigo-300">90% Calib</div>
+              <div className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>Conformal</div>
+              <div className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">90% Calib</div>
             </div>
           </div>
         </div>
 
         {/* Hotspot Alert if any */}
         {plantSummary?.hotspots && plantSummary.hotspots.length > 0 && (
-          <div className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 flex items-center gap-1.5">
+          <div className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
             <AlertTriangle className="w-3 h-3 shrink-0" />
             <span className="truncate">Hotspots: {plantSummary.hotspots.join(', ')}</span>
           </div>
@@ -509,14 +542,17 @@ export function RightSideAIChat({
       </div>
 
       {/* 3. Chat Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-700">
+      <div
+        className="flex-1 overflow-y-auto p-3.5 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} space-y-1.5`}
           >
             {/* Header info */}
-            <div className="flex items-center gap-1 text-[10px] text-slate-400 px-1">
+            <div className="flex items-center gap-1 text-[10px] px-1" style={{ color: 'var(--text-tertiary)' }}>
               <span>{msg.role === 'user' ? 'Operator' : 'SimuLens Copilot'}</span>
               <span>•</span>
               <span>{msg.timestamp}</span>
@@ -527,7 +563,7 @@ export function RightSideAIChat({
               className={`rounded-xl p-3 text-xs leading-relaxed max-w-[92%] shadow-sm ${
                 msg.role === 'user'
                   ? 'bg-indigo-600 text-white font-medium rounded-tr-none'
-                  : 'bg-slate-800/90 text-slate-200 border border-slate-700/80 rounded-tl-none'
+                  : 'bg-slate-50 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 rounded-tl-none'
               }`}
             >
               {/* Markdown-style simple renderer */}
@@ -535,14 +571,14 @@ export function RightSideAIChat({
                 {msg.content.split('\n\n').map((paragraph, idx) => {
                   if (paragraph.startsWith('### ')) {
                     return (
-                      <h4 key={idx} className="font-bold text-indigo-300 text-xs tracking-wide mt-1">
+                      <h4 key={idx} className="font-bold text-indigo-600 dark:text-indigo-400 text-xs tracking-wide mt-1">
                         {paragraph.replace('### ', '')}
                       </h4>
                     );
                   }
                   if (paragraph.startsWith('1. ') || paragraph.startsWith('- ')) {
                     return (
-                      <ul key={idx} className="list-disc pl-4 space-y-0.5 text-slate-300 text-[11px]">
+                      <ul key={idx} className="list-disc pl-4 space-y-0.5 text-slate-700 dark:text-slate-300 text-[11px]">
                         {paragraph.split('\n').map((line, lIdx) => (
                           <li key={lIdx}>{line.replace(/^[-*]|\d+\.\s*/, '').trim()}</li>
                         ))}
@@ -555,36 +591,42 @@ export function RightSideAIChat({
 
               {/* Embedded Interactive SCM Simulation Card */}
               {msg.simulation && (
-                <div className="mt-3 p-2.5 rounded-lg bg-slate-900/90 border border-indigo-500/40 space-y-2 shadow-inner">
+                <div
+                  className="mt-3 p-2.5 rounded-lg border space-y-2 shadow-xs"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border)',
+                  }}
+                >
                   {/* Ability Badge */}
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
                       {msg.simulation.ability === 'intervention' && (
                         <>
-                          <Layers className="w-3 h-3 text-amber-400" />
+                          <Layers className="w-3 h-3 text-amber-500" />
                           Ability 3: Causal Intervention
                         </>
                       )}
                       {msg.simulation.ability === 'counterfactual' && (
                         <>
-                          <RefreshCw className="w-3 h-3 text-purple-400" />
+                          <RefreshCw className="w-3 h-3 text-purple-500" />
                           Ability 4: Counterfactual "What-If"
                         </>
                       )}
                       {msg.simulation.ability === 'next_state' && (
                         <>
-                          <Play className="w-3 h-3 text-emerald-400" />
+                          <Play className="w-3 h-3 text-emerald-500" />
                           Ability 1: Next-State Prediction
                         </>
                       )}
                       {msg.simulation.ability === 'reliability' && (
                         <>
-                          <ShieldCheck className="w-3 h-3 text-sky-400" />
+                          <ShieldCheck className="w-3 h-3 text-sky-500" />
                           Conformal Calibration
                         </>
                       )}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
                       {msg.simulation.machine_label || msg.simulation.machine_id}
                     </span>
                   </div>
@@ -592,34 +634,43 @@ export function RightSideAIChat({
                   {/* Intervention Specific Details */}
                   {msg.simulation.ability === 'intervention' && (
                     <div className="space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between text-slate-300 bg-slate-950/60 px-2 py-1 rounded border border-slate-800">
-                        <span className="font-mono text-amber-400">
+                      <div
+                        className="flex items-center justify-between px-2 py-1 rounded border text-xs"
+                        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                      >
+                        <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">
                           do({msg.simulation.target_variable} = {msg.simulation.forced_value}%)
                         </span>
-                        <span className="text-[9px] text-slate-400 font-mono">
+                        <span className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
                           PA_{msg.simulation.target_variable} ← ∅
                         </span>
                       </div>
 
                       {msg.simulation.envelope && (
                         <div className="grid grid-cols-2 gap-1.5 text-[10px] pt-1">
-                          <div className="bg-slate-950/40 p-1.5 rounded border border-slate-800">
-                            <div className="text-slate-400">Temp 90% Envelope</div>
-                            <div className="font-mono font-bold text-amber-300">
+                          <div
+                            className="p-1.5 rounded-lg border"
+                            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                          >
+                            <div style={{ color: 'var(--text-tertiary)' }}>Temp 90% Envelope</div>
+                            <div className="font-mono font-bold text-amber-600 dark:text-amber-400">
                               {msg.simulation.envelope.temperature_c?.mean?.toFixed(1) ?? '54.2'}°C
                             </div>
-                            <div className="text-[9px] text-slate-500 font-mono">
+                            <div className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
                               [{msg.simulation.envelope.temperature_c?.lo_90?.toFixed(1) ?? '51.8'} -{' '}
                               {msg.simulation.envelope.temperature_c?.hi_90?.toFixed(1) ?? '56.6'}]
                             </div>
                           </div>
 
-                          <div className="bg-slate-950/40 p-1.5 rounded border border-slate-800">
-                            <div className="text-slate-400">Power Draw</div>
-                            <div className="font-mono font-bold text-emerald-300">
+                          <div
+                            className="p-1.5 rounded-lg border"
+                            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                          >
+                            <div style={{ color: 'var(--text-tertiary)' }}>Power Draw</div>
+                            <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                               {msg.simulation.envelope.power_kw?.mean?.toFixed(1) ?? '15.4'} kW
                             </div>
-                            <div className="text-[9px] text-slate-500 font-mono">
+                            <div className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
                               [{msg.simulation.envelope.power_kw?.lo_90?.toFixed(1) ?? '14.1'} -{' '}
                               {msg.simulation.envelope.power_kw?.hi_90?.toFixed(1) ?? '16.7'}]
                             </div>
@@ -639,15 +690,15 @@ export function RightSideAIChat({
                             )
                           }
                           disabled={appliedActions[msg.id]}
-                          className={`w-full py-1.5 px-2.5 rounded-md font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm ${
+                          className={`w-full py-1.5 px-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm ${
                             appliedActions[msg.id]
-                              ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 cursor-default'
-                              : 'bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white border border-white/20'
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 cursor-default'
+                              : 'bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white'
                           }`}
                         >
                           {appliedActions[msg.id] ? (
                             <>
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                               <span>Applied to Floor Plan Machinery!</span>
                             </>
                           ) : (
@@ -664,21 +715,27 @@ export function RightSideAIChat({
                   {/* Counterfactual Details */}
                   {msg.simulation.ability === 'counterfactual' && (
                     <div className="space-y-1.5 text-[11px]">
-                      <div className="text-[10px] text-purple-300 font-mono bg-purple-950/30 px-2 py-1 rounded border border-purple-800/40">
+                      <div className="text-[10px] text-purple-700 dark:text-purple-300 font-mono bg-purple-500/10 px-2 py-1 rounded border border-purple-500/30">
                         Inferred Exogenous Noise ε_t Held Invariant
                       </div>
                       {msg.simulation.divergence && (
                         <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                          <div className="bg-slate-950/40 p-1.5 rounded border border-slate-800">
-                            <div className="text-slate-400">Temp Divergence</div>
-                            <div className="font-mono font-bold text-purple-300">
+                          <div
+                            className="p-1.5 rounded-lg border"
+                            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                          >
+                            <div style={{ color: 'var(--text-tertiary)' }}>Temp Divergence</div>
+                            <div className="font-mono font-bold text-purple-600 dark:text-purple-400">
                               {msg.simulation.divergence.temperatureDiff > 0 ? '+' : ''}
                               {Number(msg.simulation.divergence.temperatureDiff || -2.3).toFixed(1)}°C
                             </div>
                           </div>
-                          <div className="bg-slate-950/40 p-1.5 rounded border border-slate-800">
-                            <div className="text-slate-400">Power Delta</div>
-                            <div className="font-mono font-bold text-purple-300">
+                          <div
+                            className="p-1.5 rounded-lg border"
+                            style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                          >
+                            <div style={{ color: 'var(--text-tertiary)' }}>Power Delta</div>
+                            <div className="font-mono font-bold text-purple-600 dark:text-purple-400">
                               {msg.simulation.divergence.powerDiff > 0 ? '+' : ''}
                               {Number(msg.simulation.divergence.powerDiff || 1.1).toFixed(1)} kW
                             </div>
@@ -691,15 +748,21 @@ export function RightSideAIChat({
                   {/* Next-State Prediction Envelope */}
                   {msg.simulation.ability === 'next_state' && msg.simulation.envelope && (
                     <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                      <div className="bg-slate-950/40 p-1.5 rounded border border-slate-800">
-                        <div className="text-slate-400">Forecast Temp (t+1)</div>
-                        <div className="font-mono font-bold text-emerald-300">
+                      <div
+                        className="p-1.5 rounded-lg border"
+                        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                      >
+                        <div style={{ color: 'var(--text-tertiary)' }}>Forecast Temp (t+1)</div>
+                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                           {msg.simulation.envelope.temperature_c?.mean?.toFixed(1) ?? '49.8'}°C
                         </div>
                       </div>
-                      <div className="bg-slate-950/40 p-1.5 rounded border border-slate-800">
-                        <div className="text-slate-400">Conformal Spread</div>
-                        <div className="font-mono text-slate-300">
+                      <div
+                        className="p-1.5 rounded-lg border"
+                        style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
+                      >
+                        <div style={{ color: 'var(--text-tertiary)' }}>Conformal Spread</div>
+                        <div className="font-mono" style={{ color: 'var(--text-primary)' }}>
                           ±{((msg.simulation.envelope.temperature_c?.hi_90 - msg.simulation.envelope.temperature_c?.lo_90) / 2 || 1.8).toFixed(1)}°C
                         </div>
                       </div>
@@ -709,13 +772,13 @@ export function RightSideAIChat({
                   {/* Reliability Map Card */}
                   {msg.simulation.ability === 'reliability' && (
                     <div className="space-y-1 text-[10px]">
-                      <div className="flex justify-between text-slate-300">
+                      <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
                         <span>Empirical Held-Out Coverage:</span>
-                        <span className="font-mono font-bold text-emerald-400">89.4% (Goal: 90%)</span>
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">89.4% (Goal: 90%)</span>
                       </div>
-                      <div className="flex justify-between text-slate-300">
+                      <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
                         <span>Physical Regime:</span>
-                        <span className="font-mono font-bold text-sky-400">In-Distribution</span>
+                        <span className="font-mono font-bold text-sky-600 dark:text-sky-400">In-Distribution</span>
                       </div>
                     </div>
                   )}
@@ -730,10 +793,15 @@ export function RightSideAIChat({
                   <button
                     key={sIdx}
                     onClick={() => handleSendMessage(suggestion)}
-                    className="px-2 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-indigo-400 text-[10px] transition-colors flex items-center gap-1"
+                    className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors flex items-center gap-1 border shadow-2xs hover:border-indigo-500"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderColor: 'var(--border)',
+                      color: 'var(--text-secondary)',
+                    }}
                   >
                     <span>{suggestion}</span>
-                    <ChevronRight className="w-2.5 h-2.5 text-indigo-400" />
+                    <ChevronRight className="w-2.5 h-2.5 text-indigo-500" />
                   </button>
                 ))}
               </div>
@@ -742,8 +810,11 @@ export function RightSideAIChat({
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-850/60 border border-slate-800 text-xs text-indigo-300">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          <div
+            className="flex items-center gap-2 p-2.5 rounded-xl border text-xs text-indigo-600 dark:text-indigo-400 shadow-xs"
+            style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
+          >
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
             <span>Consulting SCM Causal World Model...</span>
           </div>
         )}
@@ -752,35 +823,51 @@ export function RightSideAIChat({
       </div>
 
       {/* 4. Quick Causal Action Bar */}
-      <div className="shrink-0 p-2 bg-slate-950/60 border-t border-slate-800 flex items-center gap-1 overflow-x-auto scrollbar-none text-[10px]">
+      <div
+        className="shrink-0 p-2 border-t flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[10px]"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border)',
+        }}
+      >
         <button
           onClick={() => handleSendMessage(`Diagnose plant health and thermal hotspots`)}
-          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shrink-0 flex items-center gap-1"
+          className="px-2 py-1 rounded-lg border shrink-0 flex items-center gap-1 font-medium transition-colors shadow-2xs hover:border-indigo-400"
+          style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
         >
           <span>🔍 Diagnose</span>
         </button>
         <button
           onClick={() => handleSendMessage(`Simulate do(fan_speed = 85%) on ${activeMachine?.label || 'selected machine'}`)}
-          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 shrink-0 flex items-center gap-1"
+          className="px-2 py-1 rounded-lg border shrink-0 flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 transition-colors shadow-2xs hover:border-amber-400"
+          style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
         >
           <span>🛠️ Fan 85%</span>
         </button>
         <button
           onClick={() => handleSendMessage(`What if coolant flow was 90% earlier on ${activeMachine?.label || 'selected machine'}?`)}
-          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 border border-slate-700 shrink-0 flex items-center gap-1"
+          className="px-2 py-1 rounded-lg border shrink-0 flex items-center gap-1 font-medium text-purple-600 dark:text-purple-400 transition-colors shadow-2xs hover:border-purple-400"
+          style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
         >
           <span>🔁 What-If Coolant</span>
         </button>
         <button
           onClick={() => handleSendMessage(`Predict next 6-step horizon for ${activeMachine?.label || 'selected machine'}`)}
-          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 shrink-0 flex items-center gap-1"
+          className="px-2 py-1 rounded-lg border shrink-0 flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400 transition-colors shadow-2xs hover:border-emerald-400"
+          style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
         >
           <span>📈 Next State</span>
         </button>
       </div>
 
       {/* 5. Input Field Bar */}
-      <div className="shrink-0 p-3 bg-slate-950/80 border-t border-slate-800 space-y-1.5">
+      <div
+        className="shrink-0 p-3 border-t space-y-1.5"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border)',
+        }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -793,7 +880,12 @@ export function RightSideAIChat({
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
             placeholder={`Ask AI Copilot about ${activeMachine?.label || 'machinery'} or simulate...`}
-            className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-3 pr-10 py-2.5 text-xs text-slate-100 placeholder-slate-400 outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner"
+            className="w-full border rounded-xl pl-3 pr-10 py-2.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 shadow-xs"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)',
+            }}
             disabled={isLoading}
           />
           <button
@@ -801,15 +893,15 @@ export function RightSideAIChat({
             disabled={!inputQuery.trim() || isLoading}
             className={`absolute right-1.5 p-1.5 rounded-lg transition-colors ${
               inputQuery.trim() && !isLoading
-                ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow'
-                : 'text-slate-500 cursor-not-allowed'
+                ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm'
+                : 'text-slate-400 dark:text-slate-600 cursor-not-allowed'
             }`}
           >
             <Send className="w-3.5 h-3.5" />
           </button>
         </form>
 
-        <div className="flex items-center justify-between text-[9px] text-slate-400 px-1">
+        <div className="flex items-center justify-between text-[9px] px-1" style={{ color: 'var(--text-tertiary)' }}>
           <span>Non-hallucinative SCM numerical engine</span>
           <span className="font-mono">v1.2 · Challenge #44</span>
         </div>

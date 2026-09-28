@@ -1141,26 +1141,11 @@ export default function BranchCanvasPage() {
         onOpenSimulationPopup={(id) => setSimulationPopupMachineId(id)}
       />
 
-      {/* 2. Main Workspace: Floor Plan Canvas OR Telemetry HUD */}
-      {activeView === 'telemetry' ? (
-        <BranchTelemetryView
-          org={org}
-          branch={branch}
-          machines={machines}
-          onFocusMachineOnMap={(id) => {
-            setActiveView('canvas');
-            setTimeout(() => handleFocusMachine(id), 50);
-          }}
-        />
-      ) : (
-        <div
-          className={`h-full flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
-            isAiChatOpen ? 'w-full md:w-1/2 lg:w-1/2 xl:w-1/2 shrink-0 min-w-0' : 'w-full flex-1'
-          }`}
-        >
-          {/* Top Office-System Aggregate Statistics HUD - DOCKED & ZERO CANVAS OVERLAP */}
-
-          <div className="shrink-0 z-30">
+      {/* 2. Main Workspace Area */}
+      <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+        {/* Top Office-System Aggregate Statistics HUD - FULL WIDTH ACROSS WORKSPACE */}
+        {activeView !== 'telemetry' && (
+          <div className="shrink-0 z-30 w-full border-b" style={{ borderColor: 'var(--border)' }}>
             <OfficeStatsBar
               orgSlug={orgSlug}
               branchId={branchId}
@@ -1187,135 +1172,149 @@ export default function BranchCanvasPage() {
               isAiChatOpen={isAiChatOpen}
               onToggleAiChat={() => setIsAiChatOpen((prev) => !prev)}
             />
-
           </div>
+        )}
 
-          {/* Interactive Infinite Canvas Container */}
-          <div className="relative flex-1 w-full h-full overflow-hidden">
-            {/* Placement Target Mode Floating Notification */}
-            {placingPresetType && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-2xl flex items-center gap-3 animate-pulse border border-white/20">
-                <span>🎯 Click anywhere on the floor plan to place <b>{getPresetForType(placingPresetType).label}</b></span>
-                <button
-                  onClick={() => setPlacingPresetType(null)}
-                  className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[10px] uppercase font-bold"
-                >
-                  Cancel (Esc)
-                </button>
-              </div>
-            )}
-
-            {/* Interactive Infinite Canvas */}
-            <div
-              ref={canvasCallbackRef}
-              id="canvas-grid"
-            className={`w-full h-full overflow-hidden relative select-none ${
-              isSpacebarDown
-                ? isPanning
-                  ? 'cursor-grabbing'
-                  : 'cursor-grab'
-                : placingPresetType
-                ? 'cursor-crosshair'
-                : isPanning
-                ? 'cursor-grabbing'
-                : 'cursor-default'
-            }`}
-            style={{
-              touchAction: 'none',
-              backgroundColor: branch.bg_color || '#f8fafc',
-              backgroundImage:
-                'radial-gradient(circle, rgba(148, 163, 184, 0.28) 1.2px, transparent 1.2px)',
-              backgroundSize: `${32 * zoom}px ${32 * zoom}px`,
-              backgroundPosition: `${pan.x}px ${pan.y}px`,
+        {/* Content Area Below Top Stats Bar */}
+        {activeView === 'telemetry' ? (
+          <BranchTelemetryView
+            org={org}
+            branch={branch}
+            machines={machines}
+            onFocusMachineOnMap={(id) => {
+              setActiveView('canvas');
+              setTimeout(() => handleFocusMachine(id), 50);
             }}
-            onMouseDown={handleCanvasMouseDown}
-            onDragOver={handleCanvasDragOver}
-            onDrop={handleCanvasDrop}
-          >
-            {/* Floor Plan World Container */}
-            <div
-              className="absolute origin-top-left transition-transform duration-75"
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                width: `${branch.canvas_w || 1600}px`,
-                height: `${branch.canvas_h || 1000}px`,
-              }}
-            >
-              {/* Floor boundary guide border */}
+          />
+        ) : (
+          <div className="flex-1 w-full min-h-0 flex overflow-hidden relative">
+            {/* Interactive Infinite Canvas Container (fills remaining space) */}
+            <div className="relative flex-1 min-w-0 h-full overflow-hidden">
+              {/* Placement Target Mode Floating Notification */}
+              {placingPresetType && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-2xl flex items-center gap-3 animate-pulse border border-white/20">
+                  <span>🎯 Click anywhere on the floor plan to place <b>{getPresetForType(placingPresetType).label}</b></span>
+                  <button
+                    onClick={() => setPlacingPresetType(null)}
+                    className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[10px] uppercase font-bold"
+                  >
+                    Cancel (Esc)
+                  </button>
+                </div>
+              )}
+
+              {/* Interactive Infinite Canvas */}
               <div
-                className="absolute inset-0 rounded-2xl pointer-events-none border-2 border-dashed"
-                style={{ borderColor: 'rgba(148, 163, 184, 0.45)' }}
+                ref={canvasCallbackRef}
+                id="canvas-grid"
+                className={`w-full h-full overflow-hidden relative select-none ${
+                  isSpacebarDown
+                    ? isPanning
+                      ? 'cursor-grabbing'
+                      : 'cursor-grab'
+                    : placingPresetType
+                    ? 'cursor-crosshair'
+                    : isPanning
+                    ? 'cursor-grabbing'
+                    : 'cursor-default'
+                }`}
+                style={{
+                  touchAction: 'none',
+                  backgroundColor: branch.bg_color && branch.bg_color !== '#f8fafc' ? branch.bg_color : 'var(--canvas-bg)',
+                  backgroundImage:
+                    'radial-gradient(circle, rgba(148, 163, 184, 0.28) 1.2px, transparent 1.2px)',
+                  backgroundSize: `${32 * zoom}px ${32 * zoom}px`,
+                  backgroundPosition: `${pan.x}px ${pan.y}px`,
+                }}
+                onMouseDown={handleCanvasMouseDown}
+                onDragOver={handleCanvasDragOver}
+                onDrop={handleCanvasDrop}
               >
-                <span className="absolute top-2 left-3 text-[11px] font-mono text-slate-400">
-                  {branch.name} — {branch.canvas_w}×{branch.canvas_h}px
-                </span>
+                {/* Floor Plan World Container */}
+                <div
+                  className="absolute origin-top-left transition-transform duration-75"
+                  style={{
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                    width: `${branch.canvas_w || 1600}px`,
+                    height: `${branch.canvas_h || 1000}px`,
+                  }}
+                >
+                  {/* Floor boundary guide border */}
+                  <div
+                    className="absolute inset-0 rounded-2xl pointer-events-none border-2 border-dashed"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <span className="absolute top-2 left-3 text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                      {branch.name} — {branch.canvas_w}×{branch.canvas_h}px
+                    </span>
+                  </div>
+
+                  {/* Animated Power Lines & Multi-Resource Supply Grid */}
+                  <ResourceGridOverlay
+                    machines={machines}
+                    canvasWidth={branch.canvas_w || 1600}
+                    canvasHeight={branch.canvas_h || 1000}
+                    showPipes={showPipes}
+                    activeFilter={activeResourceFilter}
+                    resourcePools={resourcePools}
+                  />
+
+                  {/* Machinery Nodes on Floor Plan */}
+                  {machines.map((machine) => (
+                    <MachineNode
+                      key={machine.id}
+                      machine={machine}
+                      isSelected={selectedId === machine.id}
+                      isDragging={draggingId === machine.id}
+                      anyDragging={!!draggingId}
+                      isSpacebarDown={isSpacebarDown}
+                      orgSlug={orgSlug}
+                      branchId={branchId}
+                      onMouseDown={handleMouseDownNode}
+                      onQuickStatusChange={handleQuickStatusChange}
+                      onRotate={handleRotateMachine}
+                      onOpenSimulationPopup={(id) => setSimulationPopupMachineId(id)}
+                    />
+                  ))}
+                </div>
               </div>
 
-              {/* Animated Power Lines & Multi-Resource Supply Grid */}
-              <ResourceGridOverlay
-                machines={machines}
-                canvasWidth={branch.canvas_w || 1600}
-                canvasHeight={branch.canvas_h || 1000}
-                showPipes={showPipes}
-                activeFilter={activeResourceFilter}
-                resourcePools={resourcePools}
-              />
-
-              {/* Machinery Nodes on Floor Plan */}
-              {machines.map((machine) => (
-                <MachineNode
-                  key={machine.id}
-                  machine={machine}
-                  isSelected={selectedId === machine.id}
-                  isDragging={draggingId === machine.id}
-                  anyDragging={!!draggingId}
-                  isSpacebarDown={isSpacebarDown}
+              {/* In-Place Simulation & Resource Control Popup Card */}
+              {popupMachine && (
+                <MachineSimulationPopup
+                  machine={popupMachine}
                   orgSlug={orgSlug}
                   branchId={branchId}
-                  onMouseDown={handleMouseDownNode}
-                  onQuickStatusChange={handleQuickStatusChange}
-                  onRotate={handleRotateMachine}
-                  onOpenSimulationPopup={(id) => setSimulationPopupMachineId(id)}
+                  onClose={() => setSimulationPopupMachineId(null)}
+                  onTelemetryUpdate={handlePopupTelemetryUpdate}
                 />
-              ))}
+              )}
             </div>
-          </div>
 
-          {/* In-Place Simulation & Resource Control Popup Card */}
-          {popupMachine && (
-            <MachineSimulationPopup
-              machine={popupMachine}
+            {/* Right-Side Navigation Bar: SimuLens Causal AI Copilot (Challenge #44) */}
+            <RightSideAIChat
+              isOpen={isAiChatOpen}
+              onClose={() => setIsAiChatOpen(false)}
+              machines={machines}
+              selectedMachineId={selectedId}
+              onSelectMachine={(id) => {
+                setSelectedId(id);
+                handleFocusMachine(id);
+              }}
+              onApplyAction={handleApplyAiAction}
+              branchName={branch?.name}
               orgSlug={orgSlug}
               branchId={branchId}
-              onClose={() => setSimulationPopupMachineId(null)}
-              onTelemetryUpdate={handlePopupTelemetryUpdate}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
-      )}
 
       {/* 3. Custom Machine Creator Modal */}
       <CustomMachineModal
         isOpen={showCustomModal}
         onClose={() => setShowCustomModal(false)}
         onCreate={handleCreateCustomMachine}
-      />
-
-      {/* 4. Right-Side Navigation Bar: SimuLens Causal AI Copilot (Challenge #44) */}
-      <RightSideAIChat
-        isOpen={isAiChatOpen}
-        onClose={() => setIsAiChatOpen(false)}
-        machines={machines}
-        selectedMachineId={selectedId}
-        onSelectMachine={(id) => {
-          setSelectedId(id);
-          handleFocusMachine(id);
-        }}
-        onApplyAction={handleApplyAiAction}
-        branchName={branch?.name}
-        orgSlug={orgSlug}
-        branchId={branchId}
       />
     </div>
 
