@@ -292,6 +292,54 @@ CREATE POLICY "Users can manage their own AI messages" ON public.ai_messages
   FOR ALL TO authenticated USING (
     EXISTS (SELECT 1 FROM public.ai_sessions WHERE id = ai_messages.session_id AND user_id = auth.uid())
   );
+-- 16. Multi-Tenant Architecture (Organizations, Branches, Machinery)
+CREATE TABLE public.organizations (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  slug        TEXT NOT NULL UNIQUE,
+  logo_url    TEXT,
+  owner_id    UUID NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.org_members (
+  id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id    UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  user_id   UUID NOT NULL,
+  role      TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  UNIQUE (org_id, user_id)
+);
+ALTER TABLE public.org_members ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.branches (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id      UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  address     TEXT,
+  canvas_w    INTEGER NOT NULL DEFAULT 1200,
+  canvas_h    INTEGER NOT NULL DEFAULT 800,
+  bg_color    TEXT NOT NULL DEFAULT '#f8fafc',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.branch_machines (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  branch_id    UUID NOT NULL REFERENCES public.branches(id) ON DELETE CASCADE,
+  label        TEXT NOT NULL,
+  machine_type TEXT NOT NULL DEFAULT 'cooling_system',
+  x            DOUBLE PRECISION NOT NULL DEFAULT 100,
+  y            DOUBLE PRECISION NOT NULL DEFAULT 100,
+  width        DOUBLE PRECISION NOT NULL DEFAULT 120,
+  height       DOUBLE PRECISION NOT NULL DEFAULT 80,
+  rotation     DOUBLE PRECISION NOT NULL DEFAULT 0,
+  config_json  JSONB NOT NULL DEFAULT '{}',
+  status       TEXT NOT NULL DEFAULT 'idle' CHECK (status IN ('idle', 'running', 'warning', 'critical', 'offline')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+ALTER TABLE public.branch_machines ENABLE ROW LEVEL SECURITY;
 ```
 
 ---
@@ -347,5 +395,6 @@ For bulk trajectories:
 
 ## 6. Migration Plan
 1. `supabase/migrations/001_init.sql` — Schema initialization: `profiles`, `simulator_configs`, `datasets`, `episodes`, `steps`, and restricted `ground_truth` schema.
-2. `supabase/migrations/002_models_predictions.sql` — `models`, `predictions`, `prediction_values`, `interventions`, `counterfactuals`, `comparisons`.
-3. `supabase/migrations/003_evaluations_and_ai.sql` — `evaluations`, `reliability_regions`, `causal_demos`, `ai_sessions`, `ai_messages`.
+2. `supabase/migrations/002_multi_tenant.sql` — Multi-tenant hierarchy: `organizations`, `org_members`, `branches`, `branch_machines`, non-recursive RLS helper functions, and user sync triggers.
+3. `supabase/full_schema.sql` — Complete combined idempotent SQL bundle ready for the Supabase SQL editor.
+

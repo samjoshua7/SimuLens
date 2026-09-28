@@ -39,13 +39,18 @@ if not exist "node_modules\" (
     echo [1/3] Dependencies verified.
 )
 
-:: 4. Build Monorepo Packages
-echo [2/3] Building core packages and Next.js frontend...
-call npm run build
+:: 4. Build Core Packages
+echo [2/3] Building core engine packages...
+call npm run build:packages
 if %errorlevel% neq 0 (
-    echo [ERROR] Build failed. Check the errors above.
+    echo [ERROR] Package build failed. Check the errors above.
     pause
     exit /b 1
+)
+
+:: Clear any stale Next.js build cache to prevent dev server chunk 404s
+if exist "apps\web\.next\" (
+    rd /s /q "apps\web\.next" >nul 2>&1
 )
 
 :: 5. Launch Fastify API Gateway in persistent terminal window
