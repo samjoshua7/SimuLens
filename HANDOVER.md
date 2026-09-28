@@ -1,21 +1,31 @@
 # Handover Summary — SimuLens
 
-> **Current task:** AI Copilot Placement & Full Light/Dark Theme Switching Integration Completed.
+> **Current task:** AI Copilot Rich Message Formatting & Spec Parsing + Theme Switching Integration Completed.
 
 ---
 
-## 1. AI Copilot Placement & Full Theme Switching (Completed)
+## 1. AI Copilot Rich Message Formatting & Theme Switching (Completed)
 
-1. **Clean Workspace Layout with Non-Wrapping Full-Width HUD (`page.tsx` & `OfficeStatsBar.tsx`):**
+1. **Rich Message Rendering & Structured Parsing (`RightSideAIChat.tsx`):**
+   - Implemented `RichMessageRenderer` to eliminate unformatted text clumps, raw markdown asterisks, database UUID leakage, and raw LaTeX math.
+   - **Status Badges & Live Metrics**: Automatically parses `Status: CAUTION | Active Units: 4 | Average Load: 50%` into colored status pills (Amber Caution, Red Critical, Emerald Nominal) and structured metric chips.
+   - **Dedicated Alert Callouts**: Identifies lines starting with `⚠️` and `✅` and renders them in styled industrial alert callouts.
+   - **Machine Telemetry Spec Cards**: Parses `Selected Machine:` blocks into dedicated spec cards featuring the machine name and a 3-column metric grid (`Temperature`, `Power`, `Fan Speed`).
+   - **UUID & Formula Sanitization**: Stripped internal 36-char database UUIDs from text and rendered clean mathematical notation for causal operators (`do(X = x)`).
+
+2. **Backend & Fallback Message Sanitization (`ai.ts` & `api.ts`):**
+   - Replaced raw UUID string interpolations `(${targetId})` with human-readable machine types `(${targetMachine?.machine_type ?? 'Machinery'})`.
+   - Converted LaTeX math notation (`$do(...)%$`, `$PA_{...} \leftarrow \emptyset$`, `$\boldsymbol{\epsilon}_t$`) to clean notation (`do(X = x)`, `PA_X ← ∅`, `ε_t`).
+
+3. **Clean Workspace Layout with Non-Wrapping Full-Width HUD (`page.tsx` & `OfficeStatsBar.tsx`):**
    - Moved `OfficeStatsBar` to the **very top spanning 100% of the workspace width**, above both the canvas and the AI Copilot.
-   - All 15 HUD badges (Factory Grid HUD, 415V ON, Load 100kW, Diesel, Petrol, H2, Kerosene, Avg Temp, Refill Pools, Auto-Arrange, Pipes ON, Sim Active, PC2 Console, AI Copilot, + Place Machine, Zoom, Save) fit cleanly in **one single row** without wrapping into 4 lines.
+   - All 15 HUD badges fit cleanly in **one single row** without wrapping.
    - Positioned `RightSideAIChat` directly below `OfficeStatsBar` docked on the right side of the canvas with a clean responsive width (`w-[380px] md:w-[420px] lg:w-[450px] max-w-[50vw] shrink-0 h-full border-l`).
-   - The infinite canvas expands and contracts smoothly with `flex-1 min-w-0 h-full`, receiving maximum vertical and horizontal space.
+   - The canvas expands and contracts smoothly with `flex-1 min-w-0 h-full`.
 
-2. **Full Light & Dark Theme Switching (`RightSideAIChat.tsx`, `ThemeProvider.tsx`, `page.tsx`):**
+4. **Full Light & Dark Theme Switching (`RightSideAIChat.tsx`, `ThemeProvider.tsx`, `page.tsx`):**
    - Refactored `RightSideAIChat.tsx` to fully support both Light and Dark themes via CSS tokens (`var(--bg-primary)`, `var(--bg-secondary)`, `var(--border)`, `var(--text-primary)`, `var(--text-tertiary)`) and `dark:` Tailwind variants.
-   - Cleaned up unrendered raw LaTeX math (`$\boldsymbol{\epsilon}_t$` and `$do(X=x)$`) into readable text (`ε_t` and `do(X = x)`).
-   - Fixed canvas container background in `page.tsx` to use `var(--canvas-bg)` and boundary border to use `var(--border)`, dynamically adapting to Light and Dark modes.
+   - Fixed canvas container background in `page.tsx` to use `var(--canvas-bg)` and boundary border to use `var(--border)`.
    - Added `data-theme` attribute and `colorScheme` to `document.documentElement` in `ThemeProvider.tsx`.
    - Updated AI Copilot toggle button in `OfficeStatsBar.tsx` to render a soft indigo badge in Light mode and dark slate in Dark mode.
 
