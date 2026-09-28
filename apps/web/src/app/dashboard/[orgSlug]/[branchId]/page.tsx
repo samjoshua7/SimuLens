@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import {
   branchStore,
   CachedMachine,
@@ -1188,8 +1188,8 @@ export default function BranchCanvasPage() {
           />
         ) : (
           <div className="flex-1 w-full min-h-0 flex overflow-hidden relative">
-            {/* Interactive Infinite Canvas Container (fills remaining space) */}
-            <div className="relative flex-1 min-w-0 h-full overflow-hidden">
+            {/* Interactive Infinite Canvas Container (fills 100% of workspace) */}
+            <div className="relative w-full h-full overflow-hidden">
               {/* Placement Target Mode Floating Notification */}
               {placingPresetType && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-2xl flex items-center gap-3 animate-pulse border border-white/20">
@@ -1291,10 +1291,11 @@ export default function BranchCanvasPage() {
               )}
             </div>
 
-            {/* Right-Side Navigation Bar: SimuLens Causal AI Copilot (Challenge #44) */}
+            {/* SimuLens Causal AI Copilot Fixed Popup Window (Challenge #44) */}
             <RightSideAIChat
               isOpen={isAiChatOpen}
               onClose={() => setIsAiChatOpen(false)}
+              forceMinimize={!!popupMachine}
               machines={machines}
               selectedMachineId={selectedId}
               onSelectMachine={(id) => {
@@ -1306,6 +1307,33 @@ export default function BranchCanvasPage() {
               orgSlug={orgSlug}
               branchId={branchId}
             />
+
+            {/* Quick Floating Launcher for AI Copilot when closed */}
+            {!isAiChatOpen && !popupMachine && (
+              <button
+                onClick={() => setIsAiChatOpen(true)}
+                className="fixed bottom-4 right-4 z-40 px-3.5 py-2.5 rounded-full shadow-2xl border flex items-center gap-2.5 cursor-pointer hover:scale-105 active:scale-95 transition-all select-none backdrop-blur-xl group"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+                title="Open SimuLens Causal AI Copilot"
+              >
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-xs group-hover:rotate-12 transition-transform">
+                  <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+                </div>
+                <div className="flex flex-col text-left pr-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold">AI Copilot</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  </div>
+                  <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    SCM · Causal Model
+                  </span>
+                </div>
+              </button>
+            )}
           </div>
         )}
       </div>

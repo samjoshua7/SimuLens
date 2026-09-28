@@ -21,6 +21,7 @@ import {
   Play,
   Maximize2,
   Minimize2,
+  Minus,
   Trash2,
   HelpCircle,
   TrendingDown,
@@ -42,6 +43,7 @@ import { CachedMachine } from '@/lib/branchStore';
 interface RightSideAIChatProps {
   isOpen: boolean;
   onClose: () => void;
+  forceMinimize?: boolean;
   machines: CachedMachine[];
   selectedMachineId: string | null;
   onSelectMachine: (id: string) => void;
@@ -272,6 +274,7 @@ function RichMessageRenderer({ content }: { content: string }) {
 export function RightSideAIChat({
   isOpen,
   onClose,
+  forceMinimize = false,
   machines,
   selectedMachineId,
   onSelectMachine,
@@ -301,6 +304,22 @@ export function RightSideAIChat({
   const [plantSummary, setPlantSummary] = useState<CopilotChatResponse['plant_summary'] | null>(null);
   const [isExecutingSimulation, setIsExecutingSimulation] = useState<string | null>(null);
   const [appliedActions, setAppliedActions] = useState<Record<string, boolean>>({});
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Restore from minimize when opened externally
+  useEffect(() => {
+    if (isOpen) {
+      setIsMinimized(false);
+    }
+  }, [isOpen]);
+
+  // When forceMinimize triggers (e.g. machine simulation popup opened), reflect it
+  useEffect(() => {
+    if (forceMinimize) {
+      setIsMinimized(true);
+    }
+  }, [forceMinimize]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -624,9 +643,51 @@ export function RightSideAIChat({
 
   if (!isOpen) return null;
 
+  if (isMinimized) {
+    return (
+      <div
+        onClick={() => setIsMinimized(false)}
+        className="fixed bottom-4 right-4 z-40 px-3.5 py-2.5 rounded-full shadow-2xl border flex items-center gap-2.5 cursor-pointer hover:scale-105 active:scale-95 transition-all select-none backdrop-blur-xl group animate-in fade-in slide-in-from-bottom-3"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderColor: 'var(--border)',
+          color: 'var(--text-primary)',
+        }}
+        title="Click to expand SimuLens AI Copilot"
+      >
+        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-xs group-hover:rotate-12 transition-transform">
+          <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+        </div>
+        <div className="flex flex-col pr-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold">SimuLens AI Copilot</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+            Click to expand · SCM Active
+          </span>
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-1 transition-colors"
+          title="Close Copilot"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <aside
-      className="h-full w-[380px] md:w-[420px] lg:w-[450px] max-w-[50vw] shrink-0 border-l flex flex-col transition-all duration-300 ease-in-out select-text overflow-hidden z-20 shadow-lg"
+      className={`fixed right-4 z-40 flex flex-col rounded-2xl border shadow-2xl select-text overflow-hidden backdrop-blur-xl transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
+        isExpanded
+          ? 'top-[72px] bottom-4 w-[480px] max-w-[calc(100vw-2rem)] h-[calc(100vh-88px)]'
+          : 'bottom-4 w-[420px] sm:w-[450px] max-w-[calc(100vw-2rem)] h-[620px] max-h-[calc(100vh-95px)]'
+      }`}
       style={{
         backgroundColor: 'var(--bg-primary)',
         borderColor: 'var(--border)',
@@ -662,6 +723,29 @@ export function RightSideAIChat({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Minimize Window */}
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+            title="Minimize to Floating Pill"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Maximize / Restore */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+            title={isExpanded ? 'Restore Size' : 'Expand Height'}
+          >
+            {isExpanded ? (
+              <Minimize2 className="w-3.5 h-3.5" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* Clear History */}
           <button
             onClick={() => {
               setMessages([messages[0]]);
@@ -672,6 +756,8 @@ export function RightSideAIChat({
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
+
+          {/* Close Window */}
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
