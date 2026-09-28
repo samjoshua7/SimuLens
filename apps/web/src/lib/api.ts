@@ -13,18 +13,39 @@ import {
   ValidationSummary
 } from '@simulens/shared';
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://simulens.onrender.com'
-    : process.env.NODE_ENV === 'production'
-    ? 'https://simulens.onrender.com'
-    : 'http://localhost:8000')
-).replace(/\/$/, '');
+function getApiBase(): string {
+  // If running in browser on a remote domain (e.g. vercel.app), NEVER make calls to localhost!
+  // Chrome blocks HTTPS sites from requesting private/local network addresses (LNA/PNA policy).
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return 'https://simulens.onrender.com';
+    }
+  }
+
+  // If environment variable explicitly sets a remote API, use it
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://simulens.onrender.com';
+  }
+
+  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+}
+
+const API_BASE = getApiBase();
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // If browser is on HTTPS but API_BASE is HTTP localhost, immediately route to Render
+  let targetBase = API_BASE;
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && targetBase.startsWith('http://')) {
+    targetBase = 'https://simulens.onrender.com';
+  }
+
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${targetBase}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -40,8 +61,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return res.json();
   } catch (err: any) {
     // If local connection failed, automatically failover to live Render cloud API
-    if (!API_BASE.includes('simulens.onrender.com')) {
-      console.warn(`[SimuLens API] Primary endpoint ${API_BASE} unavailable (${err.message}). Failing over to live cloud: https://simulens.onrender.com${path}...`);
+    if (!targetBase.includes('simulens.onrender.com')) {
+      console.warn(`[SimuLens API] Primary endpoint ${targetBase} unavailable (${err.message}). Failing over to live cloud: https://simulens.onrender.com${path}...`);
       try {
         const fallbackRes = await fetch(`https://simulens.onrender.com${path}`, {
           ...options,

@@ -34,12 +34,41 @@ export interface CachedOrg {
   slug: string;
 }
 
+export interface ResourcePoolsState {
+  grid_online: boolean; // Main utility grid 415V status (true = ONLINE, false = OUTAGE)
+  diesel_current_l: number;
+  diesel_capacity_l: number;
+  petrol_current_l: number;
+  petrol_capacity_l: number;
+  hydrogen_current_kg: number;
+  hydrogen_capacity_kg: number;
+  kerosene_current_l: number;
+  kerosene_capacity_l: number;
+  genset_auto_ats: boolean; // Automatic Transfer Switch (ATS) enabled
+  lastRefillTimestamp: number;
+}
+
+export const DEFAULT_RESOURCE_POOLS: ResourcePoolsState = {
+  grid_online: true,
+  diesel_current_l: 850.0,
+  diesel_capacity_l: 1000.0,
+  petrol_current_l: 420.0,
+  petrol_capacity_l: 500.0,
+  hydrogen_current_kg: 160.0,
+  hydrogen_capacity_kg: 200.0,
+  kerosene_current_l: 680.0,
+  kerosene_capacity_l: 800.0,
+  genset_auto_ats: true,
+  lastRefillTimestamp: Date.now(),
+};
+
 interface BranchEntry {
   org: CachedOrg;
   branch: CachedBranch;
   machines: CachedMachine[];
   pan: { x: number; y: number };
   zoom: number;
+  resourcePools: ResourcePoolsState;
   lastUpdated: number;
 }
 
@@ -58,8 +87,44 @@ export const branchStore = {
       machines,
       pan: existing ? existing.pan : { x: 0, y: 0 },
       zoom: existing ? existing.zoom : 1,
+      resourcePools: existing?.resourcePools || { ...DEFAULT_RESOURCE_POOLS },
       lastUpdated: Date.now(),
     });
+  },
+
+  getResourcePools(branchId: string): ResourcePoolsState {
+    const existing = memoryStore.get(branchId);
+    return existing?.resourcePools || { ...DEFAULT_RESOURCE_POOLS };
+  },
+
+  updateResourcePools(branchId: string, partial: Partial<ResourcePoolsState>): ResourcePoolsState {
+    const existing = memoryStore.get(branchId);
+    if (existing) {
+      existing.resourcePools = {
+        ...existing.resourcePools,
+        ...partial,
+      };
+      existing.lastUpdated = Date.now();
+      return existing.resourcePools;
+    }
+    return { ...DEFAULT_RESOURCE_POOLS, ...partial };
+  },
+
+  refillAllPools(branchId: string): ResourcePoolsState {
+    const existing = memoryStore.get(branchId);
+    const refilled: ResourcePoolsState = {
+      ...(existing?.resourcePools || DEFAULT_RESOURCE_POOLS),
+      diesel_current_l: (existing?.resourcePools || DEFAULT_RESOURCE_POOLS).diesel_capacity_l,
+      petrol_current_l: (existing?.resourcePools || DEFAULT_RESOURCE_POOLS).petrol_capacity_l,
+      hydrogen_current_kg: (existing?.resourcePools || DEFAULT_RESOURCE_POOLS).hydrogen_capacity_kg,
+      kerosene_current_l: (existing?.resourcePools || DEFAULT_RESOURCE_POOLS).kerosene_capacity_l,
+      lastRefillTimestamp: Date.now(),
+    };
+    if (existing) {
+      existing.resourcePools = refilled;
+      existing.lastUpdated = Date.now();
+    }
+    return refilled;
   },
 
   updateMachines(branchId: string, machines: CachedMachine[]) {

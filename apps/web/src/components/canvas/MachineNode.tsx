@@ -160,41 +160,76 @@ export const MachineNode = memo(function MachineNode({
             </span>
           </div>
 
-          <div
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0"
-            style={{
-              backgroundColor: statusCfg.bg,
-              color: statusCfg.color,
-              borderColor: statusCfg.border,
-            }}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                machine.status === 'running' || machine.status === 'warning' ? 'animate-pulse' : ''
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Quick Master Power Button (Turn ON / OFF) */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickStatusChange(machine.id, machine.status === 'offline' ? 'running' : 'offline');
+              }}
+              className={`p-1 rounded-lg border transition-all ${
+                machine.status === 'offline'
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 hover:text-emerald-500'
+                  : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30'
               }`}
-              style={{ backgroundColor: statusCfg.color }}
-            />
-            <span className="capitalize">{machine.status}</span>
+              title={machine.status === 'offline' ? 'Machine is OFF. Click to Power ON' : 'Machine is ON. Click to Turn OFF'}
+            >
+              <Power className="w-3.5 h-3.5" />
+            </button>
+
+            <div
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+              style={{
+                backgroundColor: statusCfg.bg,
+                color: statusCfg.color,
+                borderColor: statusCfg.border,
+              }}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  machine.status === 'running' || machine.status === 'warning' ? 'animate-pulse' : ''
+                }`}
+                style={{ backgroundColor: statusCfg.color }}
+              />
+              <span className="capitalize">{machine.status}</span>
+            </div>
           </div>
         </div>
 
-        {/* Live Mini Telemetry Readout */}
-        <div className="grid grid-cols-2 gap-1.5 mt-1 pt-1 border-t text-[11px]" style={{ borderColor: 'var(--border)' }}>
+        {/* Live Mini Telemetry Readout with Multi-Resource Feeds */}
+        <div className="grid grid-cols-2 gap-1 mt-1 pt-1 border-t text-[10px]" style={{ borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-1">
             <span style={{ color: 'var(--text-tertiary)' }}>T:</span>
             <span
               className="font-mono font-medium"
               style={{ color: isOverTemp ? 'var(--danger)' : 'var(--text-primary)' }}
             >
-              {currentTemp.toFixed(1)}°C
+              {machine.status === 'offline' ? '25.0°C' : `${currentTemp.toFixed(1)}°C`}
             </span>
           </div>
           <div className="flex items-center gap-1 justify-end">
-            <span style={{ color: 'var(--text-tertiary)' }}>P:</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>⚡</span>
             <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>
-              {currentPower.toFixed(1)} kW
+              {machine.status === 'offline' ? '0.0 kW' : `${currentPower.toFixed(1)} kW`}
             </span>
           </div>
+
+          {/* Secondary Fuel Input (if applicable) */}
+          {(machine.config_json?.primary_resource || ['boiler', 'generator', 'compressor', 'chiller'].includes(machine.machine_type)) && (
+            <div className="col-span-2 flex items-center justify-between text-[9px] font-mono pt-0.5 text-slate-500">
+              <span className="capitalize text-slate-400">
+                {machine.config_json?.primary_resource === 'diesel' || machine.machine_type === 'boiler' ? '⛽ Diesel' :
+                 machine.config_json?.primary_resource === 'petrol' || machine.machine_type === 'compressor' ? '⛽ Petrol' :
+                 machine.config_json?.primary_resource === 'hydrogen' || machine.machine_type === 'chiller' ? '🧪 H₂' :
+                 machine.config_json?.primary_resource === 'kerosene' ? '🛢️ Kero' : '⛽ Fuel'}:
+              </span>
+              <span className="font-semibold text-amber-500">
+                {machine.status === 'offline'
+                  ? '0.0 L/h'
+                  : `${(machine.config_json?.resource_rate || (machine.machine_type === 'boiler' ? 14.5 : machine.machine_type === 'generator' ? 18.0 : machine.machine_type === 'compressor' ? 9.5 : 3.5)).toFixed(1)} ${machine.config_json?.primary_resource === 'hydrogen' ? 'kg/h' : 'L/h'}`}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

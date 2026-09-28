@@ -21,6 +21,7 @@ import {
   Sparkles,
   AlertTriangle,
   RefreshCw,
+  Power,
 } from 'lucide-react';
 import { CachedMachine } from '@/lib/branchStore';
 import { getPresetForType } from '@/types/machinery';
@@ -61,6 +62,8 @@ export default function MultiMachineSimulationPage() {
         pressure: number;
         vibration: number;
         isSimulating: boolean;
+        simulationCountdown?: number;
+        status?: 'running' | 'idle' | 'warning' | 'critical' | 'offline';
       }
     >
   >({});
@@ -104,11 +107,14 @@ export default function MultiMachineSimulationPage() {
               pressure: tele.pressure_bar ?? preset.specs.nominal_pressure_bar,
               vibration: tele.vibration_mm_s ?? preset.specs.nominal_vib_mm_s,
               isSimulating: false,
+              simulationCountdown: 0,
+              status: m.status,
             };
           } else {
             // Keep user's active slider inputs intact, merge updated telemetry
             nextControls[m.id] = {
               ...existing,
+              status: m.status,
               temp: tele.temperature_c ?? existing.temp,
               power: tele.power_kw ?? existing.power,
               pressure: tele.pressure_bar ?? existing.pressure,
@@ -403,14 +409,43 @@ export default function MultiMachineSimulationPage() {
     });
   };
 
-  // Run full Causal Prediction for a specific machine
+  // Toggle Machine Power ON / OFF
+  const handleToggleMachinePower = async (machineId: string) => {
+    const ctrl = controls[machineId];
+    if (!ctrl) return;
+    const isNowOffline = ctrl.status !== 'offline';
+    const nextStatus = isNowOffline ? ('offline' as const) : ('running' as const);
+
+    setControls((prev) => ({
+      ...prev,
+      [machineId]: {
+        ...prev[machineId],
+        status: nextStatus,
+        power: isNowOffline ? 0 : 25,
+        temp: isNowOffline ? 25 : prev[machineId].temp,
+        resourceRate: isNowOffline ? 0 : prev[machineId].resourceRate,
+      },
+    }));
+
+    await broadcastMachineUpdate(
+      machineId,
+      {
+        temperature_c: isNowOffline ? 25 : ctrl.temp,
+        power_kw: isNowOffline ? 0 : ctrl.power,
+        resource_rate: isNowOffline ? 0 : ctrl.resourceRate,
+      },
+      nextStatus
+    );
+  };
+
+  // Run full Causal Prediction for a specific machine (Sustained 10-second rollout with live broadcast)
   const handleRunSimulation = async (machineId: string) => {
     const ctrl = controls[machineId];
     if (!ctrl) return;
 
     setControls((prev) => ({
       ...prev,
-      [machineId]: { ...prev[machineId], isSimulating: true },
+      [machineId]: { ...prev[machineId], isSimulating: true, simulationCountdown: 10 },
     }));
 
     try {
@@ -429,27 +464,33 @@ export default function MultiMachineSimulationPage() {
       });
 
       const res = await api.predictActionConditioned(state, actions, { ambient_temperature: 25 });
-      if (res.steps.length > 0) {
-        const last = res.steps[res.steps.length - 1];
-        const nextTemp = last.variables.temperature_c?.mean ?? ctrl.temp;
-        const nextPower = last.variables.power_kw?.mean ?? ctrl.power;
+      const steps = res.steps || [];
+
+      // Step-by-step 10-second rollout: broadcast 1 step per second for 10 seconds
+      for (let sec = 1; sec <= 10; sec++) {
+        const stepIndex = Math.min(sec - 1, steps.length - 1);
+        const currentStep = steps[stepIndex];
+        const stepTemp = currentStep?.variables.temperature_c?.mean ?? ctrl.temp;
+        const stepPower = currentStep?.variables.power_kw?.mean ?? ctrl.power;
+        const remainingSeconds = 10 - sec;
 
         setControls((prev) => ({
           ...prev,
           [machineId]: {
             ...prev[machineId],
-            temp: nextTemp,
-            power: nextPower,
-            isSimulating: false,
+            temp: Math.round(stepTemp * 10) / 10,
+            power: Math.round(stepPower * 10) / 10,
+            isSimulating: remainingSeconds > 0,
+            simulationCountdown: remainingSeconds,
           },
         }));
 
-        const isWarn = nextTemp > 85;
+        const isWarn = stepTemp > 85;
         await broadcastMachineUpdate(
           machineId,
           {
-            temperature_c: nextTemp,
-            power_kw: nextPower,
+            temperature_c: Math.round(stepTemp * 10) / 10,
+            power_kw: Math.round(stepPower * 10) / 10,
             pressure_bar: ctrl.pressure,
             vibration_mm_s: ctrl.vibration,
             primary_resource: ctrl.resource,
@@ -457,12 +498,16 @@ export default function MultiMachineSimulationPage() {
           },
           isWarn ? 'warning' : 'running'
         );
+
+        if (remainingSeconds > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
       }
     } catch (e) {
-      console.error('Simulation error:', e);
+      console.error('Simulation rollout error:', e);
       setControls((prev) => ({
         ...prev,
-        [machineId]: { ...prev[machineId], isSimulating: false },
+        [machineId]: { ...prev[machineId], isSimulating: false, simulationCountdown: 0 },
       }));
     }
   };
@@ -652,13 +697,32 @@ export default function MultiMachineSimulationPage() {
                     </div>
                   </div>
 
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-full capitalize font-medium ${
-                      isWarn ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-600'
-                    }`}
-                  >
-                    {isWarn ? 'Warning Threshold' : 'Nominal'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {/* Machine Power Switch */}
+                    <button
+                      onClick={() => handleToggleMachinePower(machine.id)}
+                      className={`p-1 rounded-lg border transition-all ${
+                        ctrl.status === 'offline'
+                          ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 hover:text-emerald-500'
+                          : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-500'
+                      }`}
+                      title={ctrl.status === 'offline' ? 'Machine is OFF. Click to Power ON' : 'Machine is ON. Click to Turn OFF'}
+                    >
+                      <Power className="w-3.5 h-3.5" />
+                    </button>
+
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full capitalize font-medium ${
+                        ctrl.status === 'offline'
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                          : isWarn
+                          ? 'bg-red-500/10 text-red-500'
+                          : 'bg-emerald-500/10 text-emerald-600'
+                      }`}
+                    >
+                      {ctrl.status === 'offline' ? 'Offline' : isWarn ? 'Warning Threshold' : 'Nominal'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Realtime Sensor Gauges */}
@@ -770,14 +834,19 @@ export default function MultiMachineSimulationPage() {
                   onClick={() => handleRunSimulation(machine.id)}
                   disabled={ctrl.isSimulating}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: 'var(--accent)' }}
+                  style={{ backgroundColor: ctrl.isSimulating ? '#6366f1' : 'var(--accent)' }}
                 >
                   {ctrl.isSimulating ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Rolling Out Trajectory ({ctrl.simulationCountdown ?? 10}s)...</span>
+                    </>
                   ) : (
-                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Run Causal Rollout (10s)</span>
+                    </>
                   )}
-                  <span>Run Causal Rollout</span>
                 </button>
               </div>
             </div>

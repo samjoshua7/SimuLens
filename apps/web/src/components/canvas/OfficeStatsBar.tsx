@@ -17,8 +17,11 @@ import {
   ExternalLink,
   Layers,
   Fuel,
+  RefreshCw,
+  LayoutGrid,
+  Power,
 } from 'lucide-react';
-import { CachedMachine } from '@/lib/branchStore';
+import { CachedMachine, ResourcePoolsState, DEFAULT_RESOURCE_POOLS } from '@/lib/branchStore';
 import { getPresetForType } from '@/types/machinery';
 import { ResourceType } from './ResourceGridOverlay';
 
@@ -42,7 +45,11 @@ interface OfficeStatsBarProps {
   showPipes: boolean;
   activeResourceFilter: ResourceType;
   isAutoSimulating?: boolean;
+  resourcePools?: ResourcePoolsState;
   onToggleAutoSimulating?: () => void;
+  onToggleGridPower?: () => void;
+  onRefillPools?: () => void;
+  onAutoArrangeLayout?: () => void;
   onTogglePipes: () => void;
   onSelectResourceFilter: (res: ResourceType) => void;
   onZoomIn: () => void;
@@ -63,7 +70,11 @@ export function OfficeStatsBar({
   showPipes,
   activeResourceFilter,
   isAutoSimulating = false,
+  resourcePools = DEFAULT_RESOURCE_POOLS,
   onToggleAutoSimulating,
+  onToggleGridPower,
+  onRefillPools,
+  onAutoArrangeLayout,
   onTogglePipes,
   onSelectResourceFilter,
   onZoomIn,
@@ -88,73 +99,72 @@ export function OfficeStatsBar({
   const warningMachines = machines.filter((m) => m.status === 'warning' || m.status === 'critical').length;
 
   const totalPower = machines.reduce((acc, m) => {
-    if (m.status === 'idle' || m.status === 'offline') return acc + 1.2;
+    if (m.status === 'idle' || m.status === 'offline') return acc;
     const p = m.config_json?.current_telemetry?.power_kw ?? getPresetForType(m.machine_type).specs.rated_power_kw;
     return acc + Number(p || 0);
   }, 0);
 
   const totalDiesel = machines
-    .filter((m) => m.config_json?.primary_resource === 'diesel' || m.machine_type === 'boiler')
+    .filter((m) => m.status !== 'offline' && (m.config_json?.primary_resource === 'diesel' || m.machine_type === 'boiler'))
     .reduce((acc, m) => acc + (m.config_json?.resource_rate || 14.5), 0);
 
   const totalPetrol = machines
-    .filter((m) => m.config_json?.primary_resource === 'petrol' || m.machine_type === 'compressor')
-    .reduce((acc, m) => acc + (m.config_json?.resource_rate || 10.0), 0);
+    .filter((m) => m.status !== 'offline' && (m.config_json?.primary_resource === 'petrol' || m.machine_type === 'compressor'))
+    .reduce((acc, m) => acc + (m.config_json?.resource_rate || 9.5), 0);
 
   const totalHydrogen = machines
-    .filter((m) => m.config_json?.primary_resource === 'hydrogen' || m.machine_type === 'chiller')
-    .reduce((acc, m) => acc + (m.config_json?.resource_rate || 6.5), 0);
+    .filter((m) => m.status !== 'offline' && (m.config_json?.primary_resource === 'hydrogen' || m.machine_type === 'chiller'))
+    .reduce((acc, m) => acc + (m.config_json?.resource_rate || 3.5), 0);
 
   const totalKerosene = machines
-    .filter((m) => m.config_json?.primary_resource === 'kerosene')
-    .reduce((acc, m) => acc + (m.config_json?.resource_rate || 8.0), 0);
+    .filter((m) => m.status !== 'offline' && m.config_json?.primary_resource === 'kerosene')
+    .reduce((acc, m) => acc + (m.config_json?.resource_rate || 12.0), 0);
 
-  const avgTemp = totalMachines > 0
-    ? machines.reduce((acc, m) => {
-        const t = m.config_json?.current_telemetry?.temperature_c ?? getPresetForType(m.machine_type).specs.nominal_temp_c;
-        return acc + Number(t || 0);
-      }, 0) / totalMachines
-    : 0;
+  // Mean facility thermal index
+  const avgTemp =
+    machines.length > 0
+      ? machines.reduce((acc, m) => {
+          const t = m.config_json?.current_telemetry?.temperature_c ?? getPresetForType(m.machine_type).specs.nominal_temp_c;
+          return acc + Number(t || 25);
+        }, 0) / machines.length
+      : 25.0;
 
-  // Compact collapsed summary pill
+  // Collapsed Minimal Floating Pill
   if (isCollapsed) {
     return (
       <div
-        className="absolute top-4 right-4 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border backdrop-blur-md shadow-xl select-none animate-fade-in"
+        className="w-full px-4 py-2 border-b flex items-center justify-between gap-3 text-xs select-none backdrop-blur-md shadow-sm transition-all"
         style={{
-          backgroundColor: 'var(--bg-primary-translucent, rgba(255, 255, 255, 0.94))',
+          backgroundColor: 'var(--bg-primary)',
           borderColor: 'var(--border)',
         }}
       >
-        <div className="flex items-center gap-2 pr-1">
-          <span className={`w-2.5 h-2.5 rounded-full ${isRealtimeConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-          <span className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>Grid HUD</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 font-semibold text-xs text-slate-700 dark:text-slate-300">
+            <span className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span>Facility HUD</span>
+          </div>
+
+          <div className="flex items-center gap-1 font-mono text-xs font-bold text-amber-500">
+            <Zap className="w-3.5 h-3.5" />
+            <span>{totalPower.toFixed(1)} kW</span>
+          </div>
+
+          <div className="flex items-center gap-1 font-mono text-xs font-bold text-rose-500">
+            <Thermometer className="w-3.5 h-3.5" />
+            <span>{avgTemp.toFixed(1)}°C</span>
+          </div>
+
+          {/* Quick Outage Status */}
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+            resourcePools.grid_online ? 'bg-sky-500/10 text-sky-500' : 'bg-rose-500 text-white animate-pulse'
+          }`}>
+            {resourcePools.grid_online ? '⚡ 415V' : '⚠️ OUTAGE'}
+          </span>
         </div>
 
-        <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
-
-        <div className="flex items-center gap-1 font-mono text-xs text-amber-600 dark:text-amber-400 font-bold">
-          <Zap className="w-3.5 h-3.5" />
-          <span>{totalPower.toFixed(1)} kW</span>
-        </div>
-
-        <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
-
-        <div className="flex items-center gap-1 font-mono text-xs text-orange-600 dark:text-orange-400 font-bold">
-          <span>⛽</span>
-          <span>{totalDiesel.toFixed(1)} L/h</span>
-        </div>
-
-        <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
-
-        <div className="flex items-center gap-1 font-mono text-xs text-rose-600 dark:text-rose-400 font-bold">
-          <Thermometer className="w-3.5 h-3.5" />
-          <span>{avgTemp.toFixed(1)}°C</span>
-        </div>
-
-        {onToggleAutoSimulating && (
-          <>
-            <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
+        <div className="flex items-center gap-2">
+          {onToggleAutoSimulating && (
             <button
               onClick={onToggleAutoSimulating}
               className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
@@ -166,45 +176,43 @@ export function OfficeStatsBar({
             >
               <span>{isAutoSimulating ? '⏸ Pause' : '▶ Live Sim'}</span>
             </button>
-          </>
-        )}
+          )}
 
-        <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
-
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-80 transition-opacity"
-          title="Expand Full Office HUD"
-        >
-          <span>▾ Expand HUD</span>
-        </button>
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-80 transition-opacity"
+            title="Expand Full Office HUD"
+          >
+            <span>▾ Expand HUD</span>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div
-      className="absolute top-4 left-4 right-4 z-40 rounded-2xl border p-2.5 backdrop-blur-md shadow-lg flex items-center justify-between gap-3 flex-wrap select-none animate-fade-in"
+      className="w-full px-4 py-2 border-b flex items-center justify-between gap-3 flex-wrap select-none transition-all shadow-sm z-30"
       style={{
-        backgroundColor: 'var(--bg-primary-translucent, rgba(255, 255, 255, 0.90))',
+        backgroundColor: 'var(--bg-primary)',
         borderColor: 'var(--border)',
       }}
     >
-      {/* Left: Overall Office-System Statistics Cards */}
-      <div className="flex items-center gap-2.5 text-xs flex-wrap">
+      {/* Left: Overall Office-System Statistics & Resource Pools Cards */}
+      <div className="flex items-center gap-2 text-xs flex-wrap">
         {/* Realtime link status */}
-        <div className="flex items-center gap-2 pl-1 pr-2">
+        <div className="flex items-center gap-1.5 pl-1 pr-2">
           <div className="relative flex items-center justify-center">
-            <span className={`w-2.5 h-2.5 rounded-full ${isRealtimeConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
             {isRealtimeConnected && (
-              <span className="absolute w-4 h-4 rounded-full bg-emerald-500/40 animate-ping" />
+              <span className="absolute w-3.5 h-3.5 rounded-full bg-emerald-500/40 animate-ping" />
             )}
           </div>
           <div>
-            <p className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>
-              Office Grid HUD
+            <p className="font-semibold text-xs leading-none" style={{ color: 'var(--text-primary)' }}>
+              Factory Grid HUD
             </p>
-            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+            <p className="text-[10px] leading-tight" style={{ color: 'var(--text-tertiary)' }}>
               {isRealtimeConnected ? 'PC1 ↔ PC2 Active' : 'Connecting...'}
             </p>
           </div>
@@ -212,12 +220,28 @@ export function OfficeStatsBar({
 
         <div className="h-6 w-px" style={{ backgroundColor: 'var(--border)' }} />
 
+        {/* ⚡ Grid Power Switch & ATS Failover Button */}
+        {onToggleGridPower && (
+          <button
+            onClick={onToggleGridPower}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all shadow-sm ${
+              resourcePools.grid_online
+                ? 'bg-sky-500/10 border-sky-400 text-sky-600 dark:text-sky-400 hover:bg-rose-500/10 hover:border-rose-400 hover:text-rose-500'
+                : 'bg-rose-500 border-rose-600 text-white animate-pulse'
+            }`}
+            title={resourcePools.grid_online ? 'Grid is Online. Click to simulate Power Outage (triggers Genset ATS)' : 'Grid Outage Active! Genset Running. Click to restore grid.'}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>{resourcePools.grid_online ? 'Grid: 415V ON' : '⚠️ OUTAGE (ATS GENSET)'}</span>
+          </button>
+        )}
+
         {/* Total Power Draw Card */}
         {visibleCards.power && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-amber-500/10 shadow-sm border border-amber-500/20">
             <Zap className="w-3.5 h-3.5 text-amber-500" />
             <div>
-              <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Power</span>
+              <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Load</span>
               <p className="font-mono font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
                 {totalPower.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">kW</span>
               </p>
@@ -225,12 +249,17 @@ export function OfficeStatsBar({
           </div>
         )}
 
-        {/* Diesel Card */}
+        {/* Diesel Tank & Burn Rate Card */}
         {visibleCards.diesel && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-orange-500/10 shadow-sm border border-orange-500/20">
             <span className="text-xs text-orange-500">⛽</span>
             <div>
-              <span className="text-[9px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-semibold">Diesel</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-semibold">Diesel Tank</span>
+                <span className="text-[9px] font-mono font-bold text-orange-600">
+                  {resourcePools.diesel_current_l.toFixed(0)}L
+                </span>
+              </div>
               <p className="font-mono font-bold text-xs text-orange-600 dark:text-orange-400">
                 {totalDiesel.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">L/h</span>
               </p>
@@ -238,12 +267,17 @@ export function OfficeStatsBar({
           </div>
         )}
 
-        {/* Petrol Card */}
+        {/* Petrol Tank Card */}
         {visibleCards.petrol && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-yellow-500/10 shadow-sm border border-yellow-500/20">
             <span className="text-xs text-yellow-600">⛽</span>
             <div>
-              <span className="text-[9px] uppercase tracking-wider text-yellow-600 dark:text-yellow-400 font-semibold">Petrol</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-wider text-yellow-600 dark:text-yellow-400 font-semibold">Petrol</span>
+                <span className="text-[9px] font-mono font-bold text-yellow-600">
+                  {resourcePools.petrol_current_l.toFixed(0)}L
+                </span>
+              </div>
               <p className="font-mono font-bold text-xs text-yellow-600 dark:text-yellow-400">
                 {totalPetrol.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">L/h</span>
               </p>
@@ -251,12 +285,17 @@ export function OfficeStatsBar({
           </div>
         )}
 
-        {/* Hydrogen Card */}
+        {/* Hydrogen Tank Card */}
         {visibleCards.hydrogen && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-emerald-500/10 shadow-sm border border-emerald-500/20">
             <span className="text-xs text-emerald-500 font-bold">🧪</span>
             <div>
-              <span className="text-[9px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold">Hydrogen</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold">H₂ Tank</span>
+                <span className="text-[9px] font-mono font-bold text-emerald-600">
+                  {resourcePools.hydrogen_current_kg.toFixed(0)}kg
+                </span>
+              </div>
               <p className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
                 {totalHydrogen.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">kg/h</span>
               </p>
@@ -264,12 +303,17 @@ export function OfficeStatsBar({
           </div>
         )}
 
-        {/* Kerosene Card */}
+        {/* Kerosene Tank Card */}
         {visibleCards.kerosene && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-purple-500/10 shadow-sm border border-purple-500/20">
             <span className="text-xs text-purple-500">🛢️</span>
             <div>
-              <span className="text-[9px] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold">Kerosene</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold">Kerosene</span>
+                <span className="text-[9px] font-mono font-bold text-purple-600">
+                  {resourcePools.kerosene_current_l.toFixed(0)}L
+                </span>
+              </div>
               <p className="font-mono font-bold text-xs text-purple-600 dark:text-purple-400">
                 {totalKerosene.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">L/h</span>
               </p>
@@ -277,83 +321,54 @@ export function OfficeStatsBar({
           </div>
         )}
 
-        {/* Mean Temp */}
+        {/* Average Thermal Index Card */}
         {visibleCards.thermal && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-rose-500/10 shadow-sm border border-rose-500/20">
             <Thermometer className="w-3.5 h-3.5 text-rose-500" />
             <div>
-              <span className="text-[9px] uppercase tracking-wider text-rose-600 dark:text-rose-400 font-semibold">Thermal</span>
-              <p className="font-mono font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-[9px] uppercase tracking-wider text-rose-600 dark:text-rose-400 font-semibold">Avg Temp</span>
+              <p className="font-mono font-bold text-xs text-rose-600 dark:text-rose-400">
                 {avgTemp.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">°C</span>
               </p>
             </div>
           </div>
         )}
 
-        {/* Customize Cards Dropdown */}
-        <div className="relative">
+        {/* ⛽ Refill Tanks Action Button */}
+        {onRefillPools && (
           <button
-            onClick={() => setShowCardCustomizer(!showCardCustomizer)}
-            className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600"
-            style={{ borderColor: 'var(--border)' }}
-            title="Customize Visible Cards"
+            onClick={onRefillPools}
+            className="flex items-center gap-1 px-2 py-1 rounded-xl border bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-orange-500 hover:border-orange-400 text-xs font-semibold transition-all shadow-sm"
+            title="Refill all depleted resource tanks to 100% capacity"
           >
-            ⚙️
+            <RefreshCw className="w-3 h-3" />
+            <span>Refill Pools</span>
           </button>
-
-          {showCardCustomizer && (
-            <div
-              className="absolute left-0 top-full mt-2 w-48 rounded-xl border p-2.5 shadow-xl z-50 animate-fade-in"
-              style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border)' }}
-            >
-              <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Toggle Metric Cards
-              </p>
-              <div className="space-y-1.5 text-xs">
-                {([
-                  { key: 'power', label: '⚡ Power Demand' },
-                  { key: 'diesel', label: '⛽ Diesel' },
-                  { key: 'petrol', label: '⛽ Petrol' },
-                  { key: 'hydrogen', label: '🧪 Hydrogen' },
-                  { key: 'kerosene', label: '🛢️ Kerosene' },
-                  { key: 'thermal', label: '🌡️ Mean Thermal' },
-                ] as const).map((item) => (
-                  <label key={item.key} className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-                    <input
-                      type="checkbox"
-                      checked={visibleCards[item.key]}
-                      onChange={(e) =>
-                        setVisibleCards((prev: VisibleCardsState) => ({ ...prev, [item.key]: e.target.checked }))
-                      }
-                      className="rounded text-indigo-600"
-                    />
-                    <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Spacebar Pan & Zoom UX Helper Badge */}
-        <div className="hidden lg:flex items-center gap-1.5 pl-2 text-[10px] text-slate-400 font-mono">
-          <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold">[SPACE]</span>
-          <span>+ Drag to Pan</span>
-          <span className="opacity-40">•</span>
-          <span>Pinch to Zoom</span>
-        </div>
+        )}
       </div>
 
-      {/* Right: Pipeline Layer Controls & Quick Actions */}
-      <div className="flex items-center gap-2">
-        {/* Pipeline Layer Toggle */}
+      {/* Right: Map Controls, Filters & Navigation */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Auto-Arrange Floor Plan Button */}
+        {onAutoArrangeLayout && (
+          <button
+            onClick={onAutoArrangeLayout}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 text-xs font-semibold transition-all shadow-sm"
+            title="Auto-arrange machines in clean bays below resource stations"
+          >
+            <LayoutGrid className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Auto-Arrange</span>
+          </button>
+        )}
+
+        {/* Pipeline Conduits Toggle */}
         <button
           onClick={onTogglePipes}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
             showPipes ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400 text-sky-600 dark:text-sky-400' : 'opacity-60 hover:opacity-100'
           }`}
           style={{ borderColor: showPipes ? undefined : 'var(--border)' }}
-          title="Toggle Animated Supply Lines (Power, Diesel, Petrol, Hydrogen, Kerosene)"
+          title="Toggle Animated Supply Lines"
         >
           <Layers className="w-3.5 h-3.5" />
           <span>{showPipes ? 'Pipes: ON' : 'Pipes: OFF'}</span>
@@ -386,7 +401,7 @@ export function OfficeStatsBar({
                 : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
             }`}
             style={{ borderColor: isAutoSimulating ? undefined : 'var(--border)' }}
-            title="Toggle Live Continuous Simulation Physics Loop (steps real ODEs with noise every 1.5s)"
+            title="Toggle Live Continuous Simulation Physics Loop"
           >
             <span>{isAutoSimulating ? '⏸ Sim Active' : '▶ Live Sim'}</span>
           </button>
@@ -396,7 +411,7 @@ export function OfficeStatsBar({
         <Link
           href={`/dashboard/${orgSlug}/${branchId}/simulation`}
           target="_blank"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-90 shadow-sm"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-indigo-50 dark:bg-indigo-950/40 border-indigo-400 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:opacity-90 shadow-sm"
           title="Open Central Multi-Machine Console in separate tab/window (PC2 setup)"
         >
           <span>PC2 Console</span>
@@ -464,7 +479,7 @@ export function OfficeStatsBar({
           onClick={() => setIsCollapsed(true)}
           className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600"
           style={{ borderColor: 'var(--border)' }}
-          title="Minimize HUD to clear floor plan view"
+          title="Minimize HUD to header line"
         >
           −
         </button>

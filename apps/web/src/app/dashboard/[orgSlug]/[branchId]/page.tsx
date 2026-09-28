@@ -10,6 +10,8 @@ import {
   CachedMachine,
   CachedBranch,
   CachedOrg,
+  ResourcePoolsState,
+  DEFAULT_RESOURCE_POOLS,
 } from '@/lib/branchStore';
 import { MACHINERY_CATALOG, getPresetForType } from '@/types/machinery';
 import { MachineNode } from '@/components/canvas/MachineNode';
@@ -38,6 +40,11 @@ export default function BranchCanvasPage() {
   const [saving, setSaving] = useState(false);
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+
+  // Real-Time Exhausting Resource Pools State
+  const [resourcePools, setResourcePools] = useState<ResourcePoolsState>(
+    cached ? cached.resourcePools : DEFAULT_RESOURCE_POOLS
+  );
 
   // Live Auto-Run Simulation Engine loop state
   const [isAutoSimulating, setIsAutoSimulating] = useState(true);
@@ -316,6 +323,14 @@ export default function BranchCanvasPage() {
           });
         }
       })
+      // 4. Listen for resource pool updates (e.g. grid outage or fuel refill)
+      .on('broadcast', { event: 'resource_pools_sync' }, (event) => {
+        const { pools } = event.payload || {};
+        if (pools) {
+          setResourcePools(pools);
+          branchStore.updateResourcePools(branchId, pools);
+        }
+      })
       .subscribe((status) => {
         setIsRealtimeConnected(status === 'SUBSCRIBED');
       });
@@ -472,6 +487,49 @@ export default function BranchCanvasPage() {
 
         // Update in-memory store
         branchStore.updateMachines(branchId, updated);
+
+        // Deplete resource pools in real time based on active consumption
+        setResourcePools((currPools) => {
+          const dt = 1.5;
+          let dDiesel = 0;
+          let dPetrol = 0;
+          let dHydro = 0;
+          let dKero = 0;
+
+          updated.forEach((m) => {
+            if (m.status === 'offline') return;
+            const rate = Number(m.config_json?.resource_rate || 0);
+            const res =
+              m.config_json?.primary_resource ||
+              (m.machine_type === 'boiler' ? 'diesel' :
+               m.machine_type === 'compressor' ? 'petrol' :
+               m.machine_type === 'chiller' ? 'hydrogen' : null);
+            if (res === 'diesel') dDiesel += (rate || 14.5);
+            else if (res === 'petrol') dPetrol += (rate || 9.5);
+            else if (res === 'hydrogen') dHydro += (rate || 3.5);
+            else if (res === 'kerosene') dKero += (rate || 12.0);
+          });
+
+          // If Grid Outage occurs, Genset consumes diesel to power the factory load
+          if (!currPools.grid_online) {
+            const factoryLoad = updated.reduce(
+              (acc, m) => acc + (m.status === 'running' ? (m.config_json?.current_telemetry?.power_kw || 15) : 0),
+              0
+            );
+            dDiesel += 5.0 + 0.12 * factoryLoad;
+          }
+
+          const nextPools = {
+            ...currPools,
+            diesel_current_l: Math.max(0, currPools.diesel_current_l - (dDiesel / 3600) * dt),
+            petrol_current_l: Math.max(0, currPools.petrol_current_l - (dPetrol / 3600) * dt),
+            hydrogen_current_kg: Math.max(0, currPools.hydrogen_current_kg - (dHydro / 3600) * dt),
+            kerosene_current_l: Math.max(0, currPools.kerosene_current_l - (dKero / 3600) * dt),
+          };
+
+          branchStore.updateResourcePools(branchId, nextPools);
+          return nextPools;
+        });
 
         // Broadcast batch telemetry to other screens (e.g. PC2)
         if (channelRef.current) {
@@ -917,6 +975,89 @@ export default function BranchCanvasPage() {
     }, 500);
   };
 
+  // ---- ⚡ Grid Power Outage / ATS Generator Transfer Switch ----
+  const handleToggleGridPower = useCallback(() => {
+    setResourcePools((prev) => {
+      const nextGrid = !prev.grid_online;
+      const nextPools = { ...prev, grid_online: nextGrid };
+      branchStore.updateResourcePools(branchId, nextPools);
+
+      // If Grid Outage occurs: ATS automatically starts the Diesel Genset
+      if (!nextGrid) {
+        setMachines((mPrev) => {
+          const updated = mPrev.map((m) => {
+            if (m.machine_type === 'generator') {
+              return {
+                ...m,
+                status: 'running' as const,
+                config_json: {
+                  ...m.config_json,
+                  primary_resource: 'diesel',
+                  resource_rate: 18.0,
+                  current_telemetry: {
+                    ...m.config_json?.current_telemetry,
+                    power_kw: 65.0,
+                    temperature_c: 72.0,
+                  },
+                },
+              };
+            }
+            return m;
+          });
+          branchStore.updateMachines(branchId, updated);
+          return updated;
+        });
+      }
+
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'resource_pools_sync',
+          payload: { pools: nextPools },
+        });
+      }
+      return nextPools;
+    });
+  }, [branchId]);
+
+  // ---- ⛽ Refill All Resource Pools to 100% ----
+  const handleRefillPools = useCallback(() => {
+    const refilled = branchStore.refillAllPools(branchId);
+    setResourcePools(refilled);
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'resource_pools_sync',
+        payload: { pools: refilled },
+      });
+    }
+  }, [branchId]);
+
+  // ---- 📐 Auto-Arrange Floor Plan Layout (Organized bays below top stations) ----
+  const handleAutoArrangeLayout = useCallback(() => {
+    setMachines((prev) => {
+      const rowYStart = 200;
+      const rowHeight = 220;
+      const colWidth = 240;
+      const colXStart = 80;
+      const maxCols = 5;
+
+      const arranged = prev.map((m, index) => {
+        const col = index % maxCols;
+        const row = Math.floor(index / maxCols);
+        return {
+          ...m,
+          x: colXStart + col * colWidth,
+          y: rowYStart + row * rowHeight,
+        };
+      });
+
+      branchStore.updateMachines(branchId, arranged);
+      setHasUnsaved(true);
+      return arranged;
+    });
+  }, [branchId]);
+
   const popupMachine = machines.find((m) => m.id === simulationPopupMachineId) || null;
 
   // Initial loading only
@@ -965,46 +1106,54 @@ export default function BranchCanvasPage() {
           }}
         />
       ) : (
-        <div className="relative flex-1 h-full overflow-hidden">
-          {/* Top Office-System Aggregate Statistics HUD */}
-          <OfficeStatsBar
-            orgSlug={orgSlug}
-            branchId={branchId}
-            machines={machines}
-            zoom={zoom}
-            hasUnsaved={hasUnsaved}
-            saving={saving}
-            isRealtimeConnected={isRealtimeConnected}
-            showPipes={showPipes}
-            activeResourceFilter={activeResourceFilter}
-            isAutoSimulating={isAutoSimulating}
-            onToggleAutoSimulating={() => setIsAutoSimulating((prev) => !prev)}
-            onTogglePipes={() => setShowPipes(!showPipes)}
-            onSelectResourceFilter={setActiveResourceFilter}
-            onZoomIn={() => updateTransform(pan, Math.min(2.5, zoom + 0.15))}
-            onZoomOut={() => updateTransform(pan, Math.max(0.35, zoom - 0.15))}
-            onResetZoom={() => updateTransform(pan, 1.0)}
-            onSave={handleSaveLayout}
-            onOpenAddModal={() => setShowCustomModal(true)}
-          />
+        <div className="flex-1 h-full flex flex-col overflow-hidden">
+          {/* Top Office-System Aggregate Statistics HUD - DOCKED & ZERO CANVAS OVERLAP */}
+          <div className="shrink-0 z-30">
+            <OfficeStatsBar
+              orgSlug={orgSlug}
+              branchId={branchId}
+              machines={machines}
+              zoom={zoom}
+              hasUnsaved={hasUnsaved}
+              saving={saving}
+              isRealtimeConnected={isRealtimeConnected}
+              showPipes={showPipes}
+              activeResourceFilter={activeResourceFilter}
+              isAutoSimulating={isAutoSimulating}
+              resourcePools={resourcePools}
+              onToggleAutoSimulating={() => setIsAutoSimulating((prev) => !prev)}
+              onToggleGridPower={handleToggleGridPower}
+              onRefillPools={handleRefillPools}
+              onAutoArrangeLayout={handleAutoArrangeLayout}
+              onTogglePipes={() => setShowPipes(!showPipes)}
+              onSelectResourceFilter={setActiveResourceFilter}
+              onZoomIn={() => updateTransform(pan, Math.min(2.5, zoom + 0.15))}
+              onZoomOut={() => updateTransform(pan, Math.max(0.35, zoom - 0.15))}
+              onResetZoom={() => updateTransform(pan, 1.0)}
+              onSave={handleSaveLayout}
+              onOpenAddModal={() => setShowCustomModal(true)}
+            />
+          </div>
 
-          {/* Placement Target Mode Floating Notification */}
-          {placingPresetType && (
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-2xl flex items-center gap-3 animate-pulse border border-white/20">
-              <span>🎯 Click anywhere on the floor plan to place <b>{getPresetForType(placingPresetType).label}</b></span>
-              <button
-                onClick={() => setPlacingPresetType(null)}
-                className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[10px] uppercase font-bold"
-              >
-                Cancel (Esc)
-              </button>
-            </div>
-          )}
+          {/* Interactive Infinite Canvas Container */}
+          <div className="relative flex-1 w-full h-full overflow-hidden">
+            {/* Placement Target Mode Floating Notification */}
+            {placingPresetType && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium text-xs shadow-2xl flex items-center gap-3 animate-pulse border border-white/20">
+                <span>🎯 Click anywhere on the floor plan to place <b>{getPresetForType(placingPresetType).label}</b></span>
+                <button
+                  onClick={() => setPlacingPresetType(null)}
+                  className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[10px] uppercase font-bold"
+                >
+                  Cancel (Esc)
+                </button>
+              </div>
+            )}
 
-          {/* Interactive Infinite Canvas */}
-          <div
-            ref={canvasCallbackRef}
-            id="canvas-grid"
+            {/* Interactive Infinite Canvas */}
+            <div
+              ref={canvasCallbackRef}
+              id="canvas-grid"
             className={`w-full h-full overflow-hidden relative select-none ${
               isSpacebarDown
                 ? isPanning
@@ -1054,6 +1203,7 @@ export default function BranchCanvasPage() {
                 canvasHeight={branch.canvas_h || 1000}
                 showPipes={showPipes}
                 activeFilter={activeResourceFilter}
+                resourcePools={resourcePools}
               />
 
               {/* Machinery Nodes on Floor Plan */}
@@ -1087,6 +1237,7 @@ export default function BranchCanvasPage() {
             />
           )}
         </div>
+      </div>
       )}
 
       {/* 3. Custom Machine Creator Modal */}

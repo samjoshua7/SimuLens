@@ -16,6 +16,7 @@ import {
   ExternalLink,
   RotateCcw,
   Sparkles,
+  Power,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -53,6 +54,7 @@ export function MachineSimulationPopup({
   onTelemetryUpdate,
 }: MachineSimulationPopupProps) {
   const [simulating, setSimulating] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [activeTab, setActiveTab] = useState<'control' | 'intervene'>('control');
 
   // Primary resource
@@ -117,25 +119,44 @@ export function MachineSimulationPopup({
     }
   };
 
+  const handleTogglePower = () => {
+    const isNowOffline = machine.status !== 'offline';
+    onTelemetryUpdate(
+      machine.id,
+      {
+        temperature_c: isNowOffline ? 25 : currentState.temperature_c,
+        power_kw: isNowOffline ? 0 : currentState.power_kw,
+        resource_rate: isNowOffline ? 0 : resourceRate,
+      },
+      isNowOffline ? 'offline' : 'running'
+    );
+  };
+
   const handleApplyAction = async () => {
     setSimulating(true);
+    setCountdown(10);
     try {
       const actions = Array(horizon).fill(action);
       const res = await api.predictActionConditioned(currentState, actions, environment);
       setPrediction(res);
+      const steps = res.steps || [];
 
-      if (res.steps.length > 0) {
-        const lastStep = res.steps[res.steps.length - 1];
-        const nextTemp = lastStep.variables.temperature_c?.mean ?? currentState.temperature_c;
-        const nextPower = lastStep.variables.power_kw?.mean ?? currentState.power_kw;
-        const nextPressure = lastStep.variables.pressure_bar?.mean ?? currentState.pressure_bar;
-        const nextVib = lastStep.variables.vibration_mm_s?.mean ?? currentState.vibration_mm_s;
+      // Step-by-step 10-second rollout: broadcast 1 step per second for 10 seconds
+      for (let sec = 1; sec <= 10; sec++) {
+        const stepIndex = Math.min(sec - 1, steps.length - 1);
+        const curStep = steps[stepIndex];
+        const nextTemp = curStep?.variables.temperature_c?.mean ?? currentState.temperature_c;
+        const nextPower = curStep?.variables.power_kw?.mean ?? currentState.power_kw;
+        const nextPressure = curStep?.variables.pressure_bar?.mean ?? currentState.pressure_bar;
+        const nextVib = curStep?.variables.vibration_mm_s?.mean ?? currentState.vibration_mm_s;
+        const rem = 10 - sec;
+        setCountdown(rem);
 
         const updatedState = {
-          temperature_c: nextTemp,
-          pressure_bar: nextPressure,
-          power_kw: nextPower,
-          vibration_mm_s: nextVib,
+          temperature_c: Math.round(nextTemp * 10) / 10,
+          pressure_bar: Math.round(nextPressure * 100) / 100,
+          power_kw: Math.round(nextPower * 10) / 10,
+          vibration_mm_s: Math.round(nextVib * 100) / 100,
           cooling_efficiency: currentState.cooling_efficiency,
         };
         setCurrentState(updatedState);
@@ -152,11 +173,16 @@ export function MachineSimulationPopup({
           },
           status
         );
+
+        if (rem > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
       }
     } catch (e) {
       console.error('Apply action error:', e);
     } finally {
       setSimulating(false);
+      setCountdown(0);
     }
   };
 
@@ -235,6 +261,20 @@ export function MachineSimulationPopup({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Master Power Switch */}
+          <button
+            onClick={handleTogglePower}
+            className={`px-2 py-1 rounded-lg border text-xs flex items-center gap-1 transition-all ${
+              machine.status === 'offline'
+                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 hover:text-emerald-500'
+                : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-rose-500/10 hover:text-rose-500'
+            }`}
+            title={machine.status === 'offline' ? 'Machine is OFF. Click to Power ON' : 'Machine is ON. Click to Turn OFF'}
+          >
+            <Power className="w-3.5 h-3.5" />
+            <span className="font-semibold">{machine.status === 'offline' ? 'Power OFF' : 'Power ON'}</span>
+          </button>
+
           <Link
             href={`/dashboard/${orgSlug}/${branchId}/simulation`}
             target="_blank"
@@ -242,7 +282,7 @@ export function MachineSimulationPopup({
             style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
             title="Open Central Multi-Machine Console on PC2"
           >
-            <span>PC2 Console</span>
+            <span>PC2</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </Link>
           <button
@@ -512,10 +552,19 @@ export function MachineSimulationPopup({
           onClick={activeTab === 'control' ? handleApplyAction : handleApplyIntervention}
           disabled={simulating}
           className="flex-2 py-2 px-4 rounded-xl text-xs font-medium text-white transition-opacity hover:opacity-90 shadow-sm flex items-center justify-center gap-1.5"
-          style={{ backgroundColor: 'var(--accent)' }}
+          style={{ backgroundColor: simulating ? '#6366f1' : 'var(--accent)' }}
         >
-          {simulating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-          <span>{activeTab === 'control' ? 'Apply & Sync to Floor Plan' : 'Execute do() Graph Surgery'}</span>
+          {simulating ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>{countdown > 0 ? `Rolling Out Trajectory (${countdown}s)...` : 'Simulating...'}</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>{activeTab === 'control' ? 'Apply & Sync to Floor Plan (10s)' : 'Execute do() Graph Surgery'}</span>
+            </>
+          )}
         </button>
       </div>
     </div>
