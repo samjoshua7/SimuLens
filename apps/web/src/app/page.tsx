@@ -20,12 +20,12 @@ export default function RootPage() {
   }, [user, loading, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center"
-         style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      <div className="flex flex-col items-center gap-3 animate-fade-in">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading SimuLens…</p>
-      </div>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center space-y-3 select-none"
+      style={{ backgroundColor: 'var(--bg-secondary)' }}
+    >
+      <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+      <span className="text-xs text-slate-400 font-mono">Initializing SimuLens...</span>
     </div>
   );
 }

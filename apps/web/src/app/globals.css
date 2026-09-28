@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ============================================
    Light Theme (default)
@@ -17,6 +17,7 @@
   --text-tertiary: #94a3b8;
   --border: #e2e8f0;
   --border-light: #f1f5f9;
+  --border-2: #cbd5e1;
   --accent: #4f46e5;
   --accent-light: #eef2ff;
   --accent-hover: #4338ca;
@@ -30,12 +31,22 @@
   --shadow-color: rgba(0, 0, 0, 0.06);
   --canvas-bg: #f8fafc;
   --canvas-grid: #e2e8f0;
+
+  /* Aliases for compatibility */
+  --bg: var(--bg-secondary);
+  --surface: var(--bg-primary);
+  --surface-2: var(--bg-tertiary);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --muted: var(--text-tertiary);
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 /* ============================================
    Dark Theme
    ============================================ */
-.dark {
+.dark, [data-theme='dark'] {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
@@ -45,6 +56,7 @@
   --text-tertiary: #64748b;
   --border: #334155;
   --border-light: #1e293b;
+  --border-2: #475569;
   --accent: #818cf8;
   --accent-light: #1e1b4b;
   --accent-hover: #6366f1;
@@ -58,6 +70,14 @@
   --shadow-color: rgba(0, 0, 0, 0.3);
   --canvas-bg: #1e293b;
   --canvas-grid: #334155;
+
+  /* Aliases for compatibility */
+  --bg: var(--bg-secondary);
+  --surface: var(--bg-primary);
+  --surface-2: var(--bg-tertiary);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --muted: var(--text-tertiary);
 }
 
 /* ============================================
@@ -70,7 +90,7 @@
 }
 
 html {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -83,7 +103,7 @@ body {
 }
 
 /* ============================================
-   Scrollbar
+   Scrollbars
    ============================================ */
 ::-webkit-scrollbar {
   width: 6px;
@@ -91,12 +111,12 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -104,25 +124,44 @@ body {
 }
 
 /* ============================================
-   Focus Ring
+   Focus Ring & Selection
    ============================================ */
 *:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* ============================================
-   Selection
-   ============================================ */
 ::selection {
   background-color: var(--accent-light);
   color: var(--accent);
 }
 
 /* ============================================
-   Utility Classes
+   Utility Classes & Micro-Animations
    ============================================ */
 .glass {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease forwards;
 }
