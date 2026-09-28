@@ -59,6 +59,9 @@ interface BranchSideNavProps {
   onDeleteMachine: (id: string) => void;
   onOpenCustomModal: () => void;
   onQuickAddPreset: (type: string) => void;
+  onStartPlacingPreset?: (type: string) => void;
+  onUpdateMachinePosition?: (id: string, x: number, y: number) => void;
+  onOpenSimulationPopup?: (id: string) => void;
 }
 
 export function BranchSideNav({
@@ -75,6 +78,9 @@ export function BranchSideNav({
   onDeleteMachine,
   onOpenCustomModal,
   onQuickAddPreset,
+  onStartPlacingPreset,
+  onUpdateMachinePosition,
+  onOpenSimulationPopup,
 }: BranchSideNavProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,19 +189,34 @@ export function BranchSideNav({
                 </button>
               </div>
 
+              <p className="text-[10px] text-slate-400 mb-2">
+                Drag card directly to desired position on map, or click to target.
+              </p>
+
               <div className="grid grid-cols-2 gap-1.5">
                 {MACHINERY_CATALOG.slice(0, 6).map((preset) => {
                   const IconComp = ICONS[preset.iconName] || Sliders;
                   return (
-                    <button
+                    <div
                       key={preset.type}
-                      onClick={() => onQuickAddPreset(preset.type)}
-                      className="p-2 rounded-xl border text-left hover:border-indigo-400 hover:shadow-sm transition-all flex items-center gap-2 group"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', preset.type);
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                      onClick={() => {
+                        if (onStartPlacingPreset) {
+                          onStartPlacingPreset(preset.type);
+                        } else {
+                          onQuickAddPreset(preset.type);
+                        }
+                      }}
+                      className="p-2 rounded-xl border text-left hover:border-indigo-400 hover:shadow-sm transition-all flex items-center gap-2 group cursor-grab active:cursor-grabbing select-none"
                       style={{
                         backgroundColor: 'var(--bg-secondary)',
                         borderColor: 'var(--border)',
                       }}
-                      title={`Spawn ${preset.label}`}
+                      title={`Drag ${preset.label} to map or click to place`}
                     >
                       <div
                         className="p-1 rounded-md shrink-0"
@@ -211,7 +232,7 @@ export function BranchSideNav({
                           {preset.specs.rated_power_kw} kW
                         </p>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -252,6 +273,43 @@ export function BranchSideNav({
                   </button>
                 </div>
 
+                {/* Precision Positioning Coordinates */}
+                <div className="mb-2 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                    Desired Position (Pixels)
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 mt-1 font-mono text-xs">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-white dark:bg-slate-900 border" style={{ borderColor: 'var(--border)' }}>
+                      <span className="text-slate-400 text-[10px]">X:</span>
+                      <input
+                        type="number"
+                        value={selectedMachine.x}
+                        onChange={(e) => {
+                          const val = Math.max(10, parseInt(e.target.value) || 0);
+                          onUpdateMachinePosition?.(selectedMachine.id, val, selectedMachine.y);
+                        }}
+                        className="w-full bg-transparent border-0 outline-none text-xs font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      />
+                      <span className="text-slate-400 text-[9px]">px</span>
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-white dark:bg-slate-900 border" style={{ borderColor: 'var(--border)' }}>
+                      <span className="text-slate-400 text-[10px]">Y:</span>
+                      <input
+                        type="number"
+                        value={selectedMachine.y}
+                        onChange={(e) => {
+                          const val = Math.max(10, parseInt(e.target.value) || 0);
+                          onUpdateMachinePosition?.(selectedMachine.id, selectedMachine.x, val);
+                        }}
+                        className="w-full bg-transparent border-0 outline-none text-xs font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      />
+                      <span className="text-slate-400 text-[9px]">px</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Live values */}
                 <div className="grid grid-cols-2 gap-2 text-xs mb-3 font-mono">
                   <div className="p-1.5 rounded bg-white dark:bg-slate-900 border" style={{ borderColor: 'var(--border)' }}>
@@ -270,15 +328,26 @@ export function BranchSideNav({
 
                 {/* Actions */}
                 <div className="space-y-1.5">
+                  {onOpenSimulationPopup && (
+                    <button
+                      onClick={() => onOpenSimulationPopup(selectedMachine.id)}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: 'var(--accent)' }}
+                      title="Open In-Place Simulation & Resource Controls right on the map"
+                    >
+                      <span>⚡ Open In-Place Simulator</span>
+                    </button>
+                  )}
+
                   <Link
                     href={`/dashboard/${org.slug}/${branch.id}/${selectedMachine.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium text-white shadow-sm hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: 'var(--accent)' }}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium border text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    style={{ borderColor: 'var(--border)' }}
                     title="Launch full Causal Simulation & Intervention engine in new window (PC2 multi-screen)"
                   >
-                    <span>Launch Causal Simulator</span>
+                    <span>Dedicated Simulator Tab</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
 

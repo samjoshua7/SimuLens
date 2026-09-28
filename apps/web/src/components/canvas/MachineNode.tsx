@@ -43,21 +43,29 @@ const STATUS_CONFIG = {
 interface MachineNodeProps {
   machine: CachedMachine;
   isSelected: boolean;
+  isDragging?: boolean;
+  anyDragging?: boolean;
+  isSpacebarDown?: boolean;
   orgSlug: string;
   branchId: string;
   onMouseDown: (e: React.MouseEvent, id: string) => void;
   onQuickStatusChange: (id: string, newStatus: CachedMachine['status']) => void;
   onRotate?: (id: string) => void;
+  onOpenSimulationPopup?: (id: string) => void;
 }
 
 export const MachineNode = memo(function MachineNode({
   machine,
   isSelected,
+  isDragging = false,
+  anyDragging = false,
+  isSpacebarDown = false,
   orgSlug,
   branchId,
   onMouseDown,
   onQuickStatusChange,
   onRotate,
+  onOpenSimulationPopup,
 }: MachineNodeProps) {
   const [isHovered, setIsHovered] = useState(false);
   const preset = getPresetForType(machine.machine_type);
@@ -78,11 +86,20 @@ export const MachineNode = memo(function MachineNode({
 
   const simulationUrl = `/dashboard/${orgSlug}/${branchId}/${machine.id}`;
 
+  // Suppress hovercard when dragging or when spacebar is held for panning
+  const showHovercard = isHovered && !isDragging && !anyDragging && !isSpacebarDown;
+
   return (
     <div
       id={`machine-node-${machine.id}`}
-      className={`absolute select-none cursor-grab active:cursor-grabbing transition-shadow duration-150 group rounded-xl border ${
-        isSelected ? 'ring-2 ring-indigo-500 shadow-lg' : 'shadow-sm hover:shadow-md'
+      className={`absolute select-none transition-shadow duration-150 group rounded-xl border ${
+        isSpacebarDown
+          ? 'cursor-grab'
+          : isDragging
+          ? 'cursor-grabbing ring-2 ring-indigo-500 shadow-2xl scale-[1.02]'
+          : isSelected
+          ? 'cursor-grab ring-2 ring-indigo-500 shadow-lg'
+          : 'cursor-grab shadow-sm hover:shadow-md'
       }`}
       style={{
         left: `${machine.x}px`,
@@ -92,13 +109,32 @@ export const MachineNode = memo(function MachineNode({
         transform: machine.rotation ? `rotate(${machine.rotation}deg)` : undefined,
         transformOrigin: 'center center',
         backgroundColor: 'var(--bg-primary)',
-        borderColor: isSelected ? accentColor : 'var(--border)',
-        zIndex: isSelected ? 30 : isHovered ? 25 : 10,
+        borderColor: isSelected || isDragging ? accentColor : 'var(--border)',
+        zIndex: isDragging ? 50 : isSelected ? 30 : showHovercard ? 25 : 10,
       }}
-      onMouseDown={(e) => onMouseDown(e, machine.id)}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseDown={(e) => {
+        if (isSpacebarDown) return; // Allow spacebar pan to pass through to canvas
+        onMouseDown(e, machine.id);
+      }}
+      onDoubleClick={(e) => {
+        if (isSpacebarDown) return;
+        e.stopPropagation();
+        onOpenSimulationPopup?.(machine.id);
+      }}
+      onMouseEnter={() => {
+        if (!anyDragging && !isSpacebarDown) setIsHovered(true);
+      }}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Live coordinates floating tooltip while dragging */}
+      {isDragging && (
+        <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-mono font-semibold shadow-lg whitespace-nowrap pointer-events-none flex items-center gap-1 z-50 animate-fade-in">
+          <span>X: {machine.x}px</span>
+          <span className="opacity-60">|</span>
+          <span>Y: {machine.y}px</span>
+        </div>
+      )}
+
       {/* Top accent bar */}
       <div
         className="h-1.5 w-full rounded-t-xl"
@@ -163,7 +199,7 @@ export const MachineNode = memo(function MachineNode({
       </div>
 
       {/* Floating Rich Hovercard HUD */}
-      {isHovered && (
+      {showHovercard && (
         <div
           className="absolute left-1/2 -bottom-2 translate-y-full -translate-x-1/2 w-64 rounded-xl border p-3 z-50 animate-fade-in pointer-events-auto shadow-xl"
           style={{
@@ -256,17 +292,30 @@ export const MachineNode = memo(function MachineNode({
             </div>
           </div>
 
-          {/* Action Buttons: PC2 Causal Simulator Launcher */}
+          {/* Action Buttons: In-Place Simulator & PC2 Launcher */}
           <div className="flex items-center gap-1.5 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+            {onOpenSimulationPopup && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenSimulationPopup(machine.id);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-sm"
+                style={{ backgroundColor: 'var(--accent)' }}
+                title="Open In-Place Simulation & Resource Controls right on the map"
+              >
+                <span>⚡ Simulate</span>
+              </button>
+            )}
+
             <Link
               href={simulationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90 shadow-sm"
-              style={{ backgroundColor: 'var(--accent)' }}
-              title="Open Causal Simulation & Interventions in a new window/tab (ideal for multi-monitor PC2 setup)"
+              className="p-1.5 rounded-lg border text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              title="Open full simulation in PC2 dedicated window"
             >
-              <span>Launch Simulator</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </Link>
 
