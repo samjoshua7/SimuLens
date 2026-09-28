@@ -81,13 +81,41 @@ export const MachineNode = memo(function MachineNode({
   const currentPower = telemetry.power_kw ?? (machine.status === 'idle' ? 1.5 : preset.specs.rated_power_kw);
   const currentPressure = telemetry.pressure_bar ?? preset.specs.nominal_pressure_bar;
   const currentVibration = telemetry.vibration_mm_s ?? preset.specs.nominal_vib_mm_s;
+  const currentLoad = machine.status === 'offline'
+    ? 0
+    : (machine.config_json?.load ?? Math.min(100, Math.round((currentPower / (preset.specs.rated_power_kw || 20)) * 100)));
 
   const isOverTemp = currentTemp > (machine.config_json?.max_temp_c ?? preset.specs.max_temp_c);
+  const isWarnTemp = currentTemp >= (preset.specs.nominal_temp_c + 10);
+
+  // Extract active resources connected to this machine
+  const activeResources: string[] = Array.isArray(machine.config_json?.active_resources) && machine.config_json.active_resources.length > 0
+    ? machine.config_json.active_resources
+    : [
+        ...(machine.machine_type !== 'generator' ? ['electricity'] : []),
+        ...(machine.config_json?.primary_resource
+          ? [machine.config_json.primary_resource]
+          : machine.machine_type === 'boiler' ? ['diesel']
+          : machine.machine_type === 'generator' ? ['diesel']
+          : machine.machine_type === 'compressor' ? ['petrol']
+          : machine.machine_type === 'chiller' ? ['hydrogen']
+          : [])
+      ];
+  const uniqueActiveResources = Array.from(new Set(activeResources));
+
+  const resourceRate = machine.config_json?.resource_rate || (
+    machine.machine_type === 'boiler' ? 14.5 :
+    machine.machine_type === 'generator' ? 18.0 :
+    machine.machine_type === 'compressor' ? 9.5 : 4.0
+  );
 
   const simulationUrl = `/dashboard/${orgSlug}/${branchId}/${machine.id}`;
 
   // Suppress hovercard when dragging or when spacebar is held for panning
   const showHovercard = isHovered && !isDragging && !anyDragging && !isSpacebarDown;
+
+  const cardWidth = Math.max(195, machine.width || preset.defaultWidth);
+  const cardHeight = Math.max(125, machine.height || preset.defaultHeight);
 
   return (
     <div
@@ -104,8 +132,8 @@ export const MachineNode = memo(function MachineNode({
       style={{
         left: `${machine.x}px`,
         top: `${machine.y}px`,
-        width: `${machine.width || preset.defaultWidth}px`,
-        height: `${machine.height || preset.defaultHeight}px`,
+        width: `${cardWidth}px`,
+        height: `${cardHeight}px`,
         transform: machine.rotation ? `rotate(${machine.rotation}deg)` : undefined,
         transformOrigin: 'center center',
         backgroundColor: 'var(--bg-primary)',
@@ -142,25 +170,30 @@ export const MachineNode = memo(function MachineNode({
       />
 
       <div className="p-2.5 flex flex-col justify-between h-[calc(100%-6px)]">
-        {/* Header: Icon + Status badge */}
-        <div className="flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1.5 min-w-0">
+        {/* Header: Icon + Name/Type + Power Button + Status badge */}
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <div
-              className="p-1.5 rounded-lg flex items-center justify-center shrink-0"
+              className="p-1 rounded-lg flex items-center justify-center shrink-0"
               style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
             >
-              <IconComponent className="w-4 h-4" />
+              <IconComponent className="w-3.5 h-3.5" />
             </div>
-            <span
-              className="text-xs font-semibold truncate"
-              style={{ color: 'var(--text-primary)' }}
-              title={machine.label}
-            >
-              {machine.label}
-            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <span
+                className="text-xs font-bold truncate block tracking-tight"
+                style={{ color: 'var(--text-primary)' }}
+                title={machine.label}
+              >
+                {machine.label}
+              </span>
+              <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate block">
+                {preset.label}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {/* Quick Master Power Button (Turn ON / OFF) */}
             <button
               onClick={(e) => {
@@ -174,11 +207,12 @@ export const MachineNode = memo(function MachineNode({
               }`}
               title={machine.status === 'offline' ? 'Machine is OFF. Click to Power ON' : 'Machine is ON. Click to Turn OFF'}
             >
-              <Power className="w-3.5 h-3.5" />
+              <Power className="w-3 h-3" />
             </button>
 
+            {/* Status Indicator Pill */}
             <div
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
               style={{
                 backgroundColor: statusCfg.bg,
                 color: statusCfg.color,
@@ -196,40 +230,100 @@ export const MachineNode = memo(function MachineNode({
           </div>
         </div>
 
-        {/* Live Mini Telemetry Readout with Multi-Resource Feeds */}
-        <div className="grid grid-cols-2 gap-1 mt-1 pt-1 border-t text-[10px]" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-1">
-            <span style={{ color: 'var(--text-tertiary)' }}>T:</span>
-            <span
-              className="font-mono font-medium"
-              style={{ color: isOverTemp ? 'var(--danger)' : 'var(--text-primary)' }}
-            >
-              {machine.status === 'offline' ? '25.0°C' : `${currentTemp.toFixed(1)}°C`}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 justify-end">
-            <span style={{ color: 'var(--text-tertiary)' }}>⚡</span>
-            <span className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>
-              {machine.status === 'offline' ? '0.0 kW' : `${currentPower.toFixed(1)} kW`}
-            </span>
-          </div>
-
-          {/* Secondary Fuel Input (if applicable) */}
-          {(machine.config_json?.primary_resource || ['boiler', 'generator', 'compressor', 'chiller'].includes(machine.machine_type)) && (
-            <div className="col-span-2 flex items-center justify-between text-[9px] font-mono pt-0.5 text-slate-500">
-              <span className="capitalize text-slate-400">
-                {machine.config_json?.primary_resource === 'diesel' || machine.machine_type === 'boiler' ? '⛽ Diesel' :
-                 machine.config_json?.primary_resource === 'petrol' || machine.machine_type === 'compressor' ? '⛽ Petrol' :
-                 machine.config_json?.primary_resource === 'hydrogen' || machine.machine_type === 'chiller' ? '🧪 H₂' :
-                 machine.config_json?.primary_resource === 'kerosene' ? '🛢️ Kero' : '⛽ Fuel'}:
-              </span>
-              <span className="font-semibold text-amber-500">
-                {machine.status === 'offline'
-                  ? '0.0 L/h'
-                  : `${(machine.config_json?.resource_rate || (machine.machine_type === 'boiler' ? 14.5 : machine.machine_type === 'generator' ? 18.0 : machine.machine_type === 'compressor' ? 9.5 : 3.5)).toFixed(1)} ${machine.config_json?.primary_resource === 'hydrogen' ? 'kg/h' : 'L/h'}`}
+        {/* At-A-Glance Basic Operational Metrics (Visible Without Hovering!) */}
+        <div className="space-y-1.5 py-1 border-y my-0.5 text-[10px]" style={{ borderColor: 'var(--border)' }}>
+          {/* Row 1: Temp & Power Draw */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <span className="text-slate-400 text-[9px]">Temp:</span>
+              <span
+                className={`font-mono font-bold ${
+                  isOverTemp ? 'text-rose-500' : isWarnTemp ? 'text-amber-500' : 'text-emerald-500'
+                }`}
+              >
+                {machine.status === 'offline' ? '25.0°C' : `${currentTemp.toFixed(1)}°C`}
               </span>
             </div>
-          )}
+            <div className="flex items-center gap-1">
+              <span className="text-slate-400 text-[9px]">⚡ Power:</span>
+              <span className="font-mono font-bold" style={{ color: 'var(--text-primary)' }}>
+                {machine.status === 'offline' ? '0.0 kW' : `${currentPower.toFixed(1)} kW`}
+              </span>
+            </div>
+          </div>
+
+          {/* Row 2: Plant Operating Load with Mini Progress Bar */}
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-[9px]">
+              <span className="text-slate-400">Load Factor:</span>
+              <span className="font-mono font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                {currentLoad}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-700/60 rounded-full h-1 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  currentLoad > 85 ? 'bg-rose-500' : currentLoad > 65 ? 'bg-amber-500' : 'bg-indigo-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, currentLoad))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Active Resource Feeds Strip */}
+        <div className="flex items-center justify-between text-[9px] pt-0.5">
+          <div className="flex items-center gap-1 overflow-hidden truncate">
+            {machine.status === 'offline' ? (
+              <span className="text-slate-400 italic text-[9px]">System De-energized</span>
+            ) : uniqueActiveResources.length > 0 ? (
+              uniqueActiveResources.map((resKey) => {
+                if (resKey === 'electricity') {
+                  return (
+                    <span key={resKey} className="px-1 py-0.2 rounded bg-sky-500/10 text-sky-500 font-mono text-[8.5px] border border-sky-500/20 whitespace-nowrap">
+                      ⚡ Grid
+                    </span>
+                  );
+                }
+                if (resKey === 'diesel') {
+                  return (
+                    <span key={resKey} className="px-1 py-0.2 rounded bg-orange-500/10 text-orange-500 font-mono text-[8.5px] border border-orange-500/20 whitespace-nowrap">
+                      ⛽ {resourceRate.toFixed(1)} L/h
+                    </span>
+                  );
+                }
+                if (resKey === 'petrol') {
+                  return (
+                    <span key={resKey} className="px-1 py-0.2 rounded bg-amber-500/10 text-amber-500 font-mono text-[8.5px] border border-amber-500/20 whitespace-nowrap">
+                      ⛽ Petrol
+                    </span>
+                  );
+                }
+                if (resKey === 'hydrogen') {
+                  return (
+                    <span key={resKey} className="px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-500 font-mono text-[8.5px] border border-emerald-500/20 whitespace-nowrap">
+                      🧪 H₂ Gas
+                    </span>
+                  );
+                }
+                if (resKey === 'kerosene') {
+                  return (
+                    <span key={resKey} className="px-1 py-0.2 rounded bg-purple-500/10 text-purple-500 font-mono text-[8.5px] border border-purple-500/20 whitespace-nowrap">
+                      🛢️ Kero
+                    </span>
+                  );
+                }
+                return null;
+              })
+            ) : (
+              <span className="text-slate-400 text-[8.5px]">No active feed</span>
+            )}
+          </div>
+
+          {/* Secondary Pressure/Vibration readout */}
+          <div className="font-mono text-[8.5px] text-slate-400 shrink-0">
+            {machine.status === 'offline' ? '0.0 bar' : `${currentPressure.toFixed(1)} bar`}
+          </div>
         </div>
       </div>
 

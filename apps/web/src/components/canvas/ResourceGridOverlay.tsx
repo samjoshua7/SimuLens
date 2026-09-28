@@ -133,9 +133,13 @@ export function ResourceGridOverlay({
       // Extract all active resources from config_json
       const configuredResources: string[] = [];
 
-      if (Array.isArray(machine.config_json?.resources)) {
+      if (Array.isArray(machine.config_json?.active_resources)) {
+        machine.config_json.active_resources.forEach((r: string) => {
+          if (r && !configuredResources.includes(r)) configuredResources.push(r);
+        });
+      } else if (Array.isArray(machine.config_json?.resources)) {
         machine.config_json.resources.forEach((r: any) => {
-          if (r.active !== false && r.type) configuredResources.push(r.type);
+          if (r.active !== false && r.type && !configuredResources.includes(r.type)) configuredResources.push(r.type);
         });
       }
 

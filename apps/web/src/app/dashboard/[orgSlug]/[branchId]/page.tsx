@@ -21,6 +21,8 @@ import { CustomMachineModal } from '@/components/canvas/CustomMachineModal';
 import { BranchTelemetryView } from '@/components/canvas/BranchTelemetryView';
 import { ResourceGridOverlay, ResourceType } from '@/components/canvas/ResourceGridOverlay';
 import { MachineSimulationPopup } from '@/components/canvas/MachineSimulationPopup';
+import { RightSideAIChat } from '@/components/canvas/RightSideAIChat';
+
 
 export default function BranchCanvasPage() {
   const { user } = useAuth();
@@ -61,6 +63,11 @@ export default function BranchCanvasPage() {
 
   // In-Place Simulation Popup Card state
   const [simulationPopupMachineId, setSimulationPopupMachineId] = useState<string | null>(null);
+
+  // Right-Side AI Copilot Chat Drawer state (Challenge #44) - Default OPEN per user request
+  const [isAiChatOpen, setIsAiChatOpen] = useState(true);
+
+
 
   // Resource Pipeline Grid overlay state
   const [showPipes, setShowPipes] = useState(true);
@@ -280,6 +287,7 @@ export default function BranchCanvasPage() {
                 config_json: {
                   ...m.config_json,
                   primary_resource: telemetry.primary_resource || m.config_json?.primary_resource,
+                  active_resources: telemetry.active_resources || m.config_json?.active_resources,
                   resource_rate: telemetry.resource_rate ?? m.config_json?.resource_rate,
                   current_telemetry: {
                     ...m.config_json?.current_telemetry,
@@ -309,6 +317,7 @@ export default function BranchCanvasPage() {
                 config_json: {
                   ...m.config_json,
                   primary_resource: update.telemetry?.primary_resource || m.config_json?.primary_resource,
+                  active_resources: update.telemetry?.active_resources || m.config_json?.active_resources,
                   resource_rate: update.telemetry?.resource_rate ?? m.config_json?.resource_rate,
                   current_telemetry: {
                     ...m.config_json?.current_telemetry,
@@ -1058,7 +1067,45 @@ export default function BranchCanvasPage() {
     });
   }, [branchId]);
 
+  // Handler for applying AI Copilot recommended interventions directly to floor machinery
+  const handleApplyAiAction = useCallback(
+    (machineId: string, actionPatch: { [key: string]: any }) => {
+      setMachines((prev) => {
+        const next = prev.map((m) => {
+          if (m.id !== machineId) return m;
+          const prevConfig = m.config || m.config_json || {};
+          const prevTelemetry = m.telemetry || m.config_json?.current_telemetry || {};
+          const updatedConfig = {
+            ...prevConfig,
+            ...actionPatch,
+          };
+          const updatedTelemetry = {
+            ...prevTelemetry,
+            ...(actionPatch.machine_load !== undefined ? { load_pct: actionPatch.machine_load } : {}),
+            ...(actionPatch.fan_speed !== undefined ? { fan_speed: actionPatch.fan_speed } : {}),
+          };
+          return {
+            ...m,
+            config: updatedConfig,
+            telemetry: updatedTelemetry,
+            config_json: {
+              ...m.config_json,
+              ...actionPatch,
+              current_telemetry: updatedTelemetry,
+            },
+          };
+        });
+        branchStore.updateMachines(branchId, next);
+        setHasUnsaved(true);
+        return next;
+      });
+    },
+    [branchId]
+  );
+
+
   const popupMachine = machines.find((m) => m.id === simulationPopupMachineId) || null;
+
 
   // Initial loading only
   if (loading && !branch) {
@@ -1106,8 +1153,13 @@ export default function BranchCanvasPage() {
           }}
         />
       ) : (
-        <div className="flex-1 h-full flex flex-col overflow-hidden">
+        <div
+          className={`h-full flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+            isAiChatOpen ? 'w-full md:w-1/2 lg:w-1/2 xl:w-1/2 shrink-0 min-w-0' : 'w-full flex-1'
+          }`}
+        >
           {/* Top Office-System Aggregate Statistics HUD - DOCKED & ZERO CANVAS OVERLAP */}
+
           <div className="shrink-0 z-30">
             <OfficeStatsBar
               orgSlug={orgSlug}
@@ -1132,7 +1184,10 @@ export default function BranchCanvasPage() {
               onResetZoom={() => updateTransform(pan, 1.0)}
               onSave={handleSaveLayout}
               onOpenAddModal={() => setShowCustomModal(true)}
+              isAiChatOpen={isAiChatOpen}
+              onToggleAiChat={() => setIsAiChatOpen((prev) => !prev)}
             />
+
           </div>
 
           {/* Interactive Infinite Canvas Container */}
@@ -1246,6 +1301,23 @@ export default function BranchCanvasPage() {
         onClose={() => setShowCustomModal(false)}
         onCreate={handleCreateCustomMachine}
       />
+
+      {/* 4. Right-Side Navigation Bar: SimuLens Causal AI Copilot (Challenge #44) */}
+      <RightSideAIChat
+        isOpen={isAiChatOpen}
+        onClose={() => setIsAiChatOpen(false)}
+        machines={machines}
+        selectedMachineId={selectedId}
+        onSelectMachine={(id) => {
+          setSelectedId(id);
+          handleFocusMachine(id);
+        }}
+        onApplyAction={handleApplyAiAction}
+        branchName={branch?.name}
+        orgSlug={orgSlug}
+        branchId={branchId}
+      />
     </div>
+
   );
 }

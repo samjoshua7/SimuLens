@@ -51,4 +51,44 @@ export async function simulationRoutes(fastify: FastifyInstance) {
       trajectory: trajectory.map((r: any) => r.observed),
     };
   });
+
+  // POST /api/simulation/step-batch (batch stepping for multiple machines in one round-trip)
+  fastify.post<{
+    Body: {
+      machines: Array<{
+        id: string;
+        currentState: SystemState;
+        action: ControllableAction;
+        environment?: EnvironmentCondition;
+        seed?: number;
+        noise_enabled?: boolean;
+      }>;
+      defaultEnvironment?: EnvironmentCondition;
+    };
+  }>('/step-batch', async (request, reply) => {
+    const { machines, defaultEnvironment } = request.body;
+    if (!Array.isArray(machines)) {
+      return reply.badRequest('Missing or invalid machines array');
+    }
+
+    const fallbackEnv: EnvironmentCondition = defaultEnvironment || {
+      ambient_temperature: 25,
+    };
+
+    const results = machines.map((item) => {
+      const env = item.environment || fallbackEnv;
+      const sim = new CoolingSystemSimulator({
+        seed: item.seed ?? (Math.floor(Math.random() * 100000)),
+        noise_enabled: item.noise_enabled ?? true,
+      });
+      const record = sim.step(item.currentState, item.action, env, 0);
+      return {
+        id: item.id,
+        t: record.t,
+        observed: record.observed,
+      };
+    });
+
+    return { results };
+  });
 }

@@ -20,7 +20,9 @@ import {
   RefreshCw,
   LayoutGrid,
   Power,
+  Sparkles,
 } from 'lucide-react';
+
 import { CachedMachine, ResourcePoolsState, DEFAULT_RESOURCE_POOLS } from '@/lib/branchStore';
 import { getPresetForType } from '@/types/machinery';
 import { ResourceType } from './ResourceGridOverlay';
@@ -46,6 +48,8 @@ interface OfficeStatsBarProps {
   activeResourceFilter: ResourceType;
   isAutoSimulating?: boolean;
   resourcePools?: ResourcePoolsState;
+  isAiChatOpen?: boolean;
+  onToggleAiChat?: () => void;
   onToggleAutoSimulating?: () => void;
   onToggleGridPower?: () => void;
   onRefillPools?: () => void;
@@ -59,6 +63,7 @@ interface OfficeStatsBarProps {
   onOpenAddModal: () => void;
 }
 
+
 export function OfficeStatsBar({
   orgSlug,
   branchId,
@@ -71,7 +76,10 @@ export function OfficeStatsBar({
   activeResourceFilter,
   isAutoSimulating = false,
   resourcePools = DEFAULT_RESOURCE_POOLS,
+  isAiChatOpen = false,
+  onToggleAiChat,
   onToggleAutoSimulating,
+
   onToggleGridPower,
   onRefillPools,
   onAutoArrangeLayout,
@@ -417,6 +425,24 @@ export function OfficeStatsBar({
           <span>PC2 Console</span>
           <ExternalLink className="w-3 h-3" />
         </Link>
+
+        {/* SimuLens AI Causal Copilot Toggle Button (Challenge #44) */}
+        {onToggleAiChat && (
+          <button
+            onClick={onToggleAiChat}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
+              isAiChatOpen
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 border-indigo-400 text-white shadow-indigo-500/25 ring-2 ring-indigo-500/30'
+                : 'bg-slate-900 border-indigo-500/40 text-indigo-400 hover:bg-slate-800'
+            }`}
+            title="Open AI Causal Copilot Chat & Hotspot Diagnostics (Challenge #44)"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${isAiChatOpen ? 'animate-spin' : 'text-indigo-400'}`} />
+            <span>AI Copilot</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+          </button>
+        )}
+
 
         {/* Add Machine Button */}
         <button

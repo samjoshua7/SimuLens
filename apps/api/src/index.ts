@@ -10,6 +10,8 @@ import { validationRoutes } from './routes/validation.js';
 import { experimentRoutes } from './routes/experiments.js';
 import { aiRoutes } from './routes/ai.js';
 import { CausalGraph } from '@simulens/world-model';
+import { authPlugin } from './plugins/auth.js';
+import { rateLimitPlugin } from './plugins/rateLimit.js';
 
 dotenv.config({ path: '../../.env' });
 dotenv.config();
@@ -31,6 +33,10 @@ export async function buildApp() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   });
+
+  // Security & Rate Limiting Plugins
+  await app.register(authPlugin);
+  await app.register(rateLimitPlugin);
 
   // Health check
   app.get('/health', async () => {

@@ -57,13 +57,44 @@ export function MachineSimulationPopup({
   const [countdown, setCountdown] = useState(0);
   const [activeTab, setActiveTab] = useState<'control' | 'intervene'>('control');
 
-  // Primary resource
+  // Active resources (multi-select)
+  const [activeResources, setActiveResources] = useState<string[]>(() => {
+    if (Array.isArray(machine.config_json?.active_resources) && machine.config_json.active_resources.length > 0) {
+      return machine.config_json.active_resources;
+    }
+    return [
+      ...(machine.machine_type !== 'generator' ? ['electricity'] : []),
+      ...(machine.config_json?.primary_resource
+        ? [machine.config_json.primary_resource]
+        : machine.machine_type === 'boiler' ? ['diesel']
+        : machine.machine_type === 'generator' ? ['diesel']
+        : machine.machine_type === 'compressor' ? ['petrol']
+        : machine.machine_type === 'chiller' ? ['hydrogen']
+        : [])
+    ];
+  });
   const [selectedResource, setSelectedResource] = useState<string>(
     machine.config_json?.primary_resource || 'electricity'
   );
   const [resourceRate, setResourceRate] = useState<number>(
     machine.config_json?.resource_rate || 14.5
   );
+
+  const handleToggleResource = (resKey: string) => {
+    setActiveResources((prev) => {
+      const next = prev.includes(resKey) ? prev.filter((r) => r !== resKey) : [...prev, resKey];
+      onTelemetryUpdate(
+        machine.id,
+        {
+          primary_resource: next[0] || 'electricity',
+          active_resources: next,
+          resource_rate: resourceRate,
+        },
+        machine.status
+      );
+      return next;
+    });
+  };
 
   // Simulation physics state
   const [currentState, setCurrentState] = useState<SystemState>({
@@ -168,7 +199,8 @@ export function MachineSimulationPopup({
           machine.id,
           {
             ...updatedState,
-            primary_resource: selectedResource,
+            primary_resource: activeResources[0] || 'electricity',
+            active_resources: activeResources,
             resource_rate: resourceRate,
           },
           status
@@ -409,42 +441,49 @@ export function MachineSimulationPopup({
               />
             </div>
 
-            {/* Resource & Energy Feed Selection */}
+            {/* Resource & Energy Feed Selection (Multi-Select) */}
             <div className="p-3 rounded-xl border space-y-2.5" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                  Resource & Power Inflow
+                  Resource & Power Inflow (Multi-Select)
                 </span>
-                <span className="text-[10px] text-indigo-500 font-mono capitalize">
-                  {selectedResource} ({resourceRate} units/h)
+                <span className="text-[10px] text-indigo-500 font-mono">
+                  {activeResources.length} active feeds
                 </span>
               </div>
 
-              {/* Resource Buttons */}
-              <div className="grid grid-cols-5 gap-1 text-[10px] font-medium">
+              {/* Resource Multi-Select Buttons */}
+              <div className="grid grid-cols-5 gap-1.5 text-[9px] font-semibold">
                 {[
                   { key: 'electricity', label: '⚡ Grid', color: '#38bdf8' },
                   { key: 'diesel', label: '⛽ Diesel', color: '#f97316' },
                   { key: 'petrol', label: '⛽ Petrol', color: '#eab308' },
                   { key: 'hydrogen', label: '🧪 H2 Gas', color: '#10b981' },
                   { key: 'kerosene', label: '🛢️ Kero', color: '#a855f7' },
-                ].map((res) => (
-                  <button
-                    key={res.key}
-                    type="button"
-                    onClick={() => setSelectedResource(res.key)}
-                    className={`py-1 px-1.5 rounded-lg border text-center transition-all ${
-                      selectedResource === res.key ? 'ring-2 ring-indigo-500 font-semibold' : 'opacity-60 hover:opacity-100'
-                    }`}
-                    style={{
-                      borderColor: selectedResource === res.key ? res.color : 'var(--border)',
-                      backgroundColor: 'var(--bg-primary)',
-                      color: selectedResource === res.key ? res.color : 'var(--text-secondary)',
-                    }}
-                  >
-                    {res.label}
-                  </button>
-                ))}
+                ].map((res) => {
+                  const isSelected = activeResources.includes(res.key);
+                  return (
+                    <button
+                      key={res.key}
+                      type="button"
+                      onClick={() => handleToggleResource(res.key)}
+                      className={`py-1.5 px-1 rounded-lg border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${
+                        isSelected ? 'font-bold shadow-sm ring-1' : 'opacity-40 hover:opacity-80'
+                      }`}
+                      style={{
+                        borderColor: isSelected ? res.color : 'var(--border)',
+                        backgroundColor: isSelected ? `${res.color}18` : 'transparent',
+                        color: isSelected ? res.color : 'var(--text-tertiary)',
+                      }}
+                      title={`Click to toggle ${res.label} ${isSelected ? 'OFF' : 'ON'}`}
+                    >
+                      <span>{res.label}</span>
+                      <span className={`text-[8px] font-mono px-1 rounded ${isSelected ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-400'}`}>
+                        {isSelected ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Resource Flow Slider */}

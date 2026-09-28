@@ -47,7 +47,7 @@ export default function MultiMachineSimulationPage() {
   const channelRef = useRef<any>(null);
   const dbSaveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
-  // Machine local control states: Map of machineId -> { load, fan, coolant, resource, resourceRate, temp, power }
+  // Machine local control states: Map of machineId -> { load, fan, coolant, resource, activeResources, resourceRate, temp, power }
   const [controls, setControls] = useState<
     Record<
       string,
@@ -56,6 +56,7 @@ export default function MultiMachineSimulationPage() {
         fan: number;
         coolant: number;
         resource: string;
+        activeResources: string[];
         resourceRate: number;
         temp: number;
         power: number;
@@ -95,12 +96,28 @@ export default function MultiMachineSimulationPage() {
           const preset = getPresetForType(m.machine_type);
           const tele = m.config_json?.current_telemetry || {};
           const existing = prevControls[m.id];
+
+          const defaultActive = Array.isArray(m.config_json?.active_resources) && m.config_json.active_resources.length > 0
+            ? m.config_json.active_resources
+            : [
+                ...(m.machine_type !== 'generator' ? ['electricity'] : []),
+                ...(m.config_json?.primary_resource
+                  ? [m.config_json.primary_resource]
+                  : m.machine_type === 'boiler' ? ['diesel']
+                  : m.machine_type === 'generator' ? ['diesel']
+                  : m.machine_type === 'compressor' ? ['petrol']
+                  : m.machine_type === 'chiller' ? ['hydrogen']
+                  : [])
+              ];
+          const uniqueDefaultActive = Array.from(new Set(defaultActive));
+
           if (!existing) {
             nextControls[m.id] = {
               load: m.config_json?.load ?? 75,
               fan: m.config_json?.fan ?? 60,
               coolant: m.config_json?.coolant ?? 50,
               resource: m.config_json?.primary_resource ?? (m.machine_type === 'boiler' ? 'diesel' : 'electricity'),
+              activeResources: uniqueDefaultActive,
               resourceRate: m.config_json?.resource_rate ?? 12.0,
               temp: tele.temperature_c ?? preset.specs.nominal_temp_c,
               power: tele.power_kw ?? preset.specs.rated_power_kw,
@@ -114,6 +131,7 @@ export default function MultiMachineSimulationPage() {
             // Keep user's active slider inputs intact, merge updated telemetry
             nextControls[m.id] = {
               ...existing,
+              activeResources: existing.activeResources ?? uniqueDefaultActive,
               status: m.status,
               temp: tele.temperature_c ?? existing.temp,
               power: tele.power_kw ?? existing.power,
@@ -290,6 +308,7 @@ export default function MultiMachineSimulationPage() {
               config_json: {
                 ...(machine?.config_json || {}),
                 primary_resource: telemetry.primary_resource,
+                active_resources: telemetry.active_resources || (machine?.config_json as any)?.active_resources,
                 resource_rate: telemetry.resource_rate,
                 current_telemetry: {
                   ...telemetry,
@@ -376,6 +395,7 @@ export default function MultiMachineSimulationPage() {
           pressure_bar: updated.pressure,
           vibration_mm_s: updated.vibration,
           primary_resource: updated.resource,
+          active_resources: updated.activeResources,
           resource_rate: updated.resourceRate,
         },
         status
@@ -385,13 +405,24 @@ export default function MultiMachineSimulationPage() {
     });
   };
 
-  // Resource type toggle
-  const handleResourceChange = (machineId: string, resource: string) => {
+  // Multi-Select Resource toggle (Turn ON / OFF specific supply feeds)
+  const handleToggleResource = (machineId: string, resourceKey: string) => {
     setControls((prev) => {
       const curr = prev[machineId];
       if (!curr) return prev;
-      const updated = { ...curr, resource };
 
+      const hasRes = curr.activeResources.includes(resourceKey);
+      const nextActiveResources = hasRes
+        ? curr.activeResources.filter((r) => r !== resourceKey)
+        : [...curr.activeResources, resourceKey];
+
+      const updated = {
+        ...curr,
+        activeResources: nextActiveResources,
+        resource: nextActiveResources[0] || 'none',
+      };
+
+      // Broadcast immediately to PC1 floor map (<10ms) and persist to Supabase
       broadcastMachineUpdate(
         machineId,
         {
@@ -399,14 +430,34 @@ export default function MultiMachineSimulationPage() {
           power_kw: updated.power,
           pressure_bar: updated.pressure,
           vibration_mm_s: updated.vibration,
-          primary_resource: resource,
+          primary_resource: updated.resource,
+          active_resources: nextActiveResources,
           resource_rate: updated.resourceRate,
         },
-        'running'
+        curr.status || 'running'
       );
 
       return { ...prev, [machineId]: updated };
     });
+  };
+
+  // Explicit Sync to Map button
+  const handleSyncToMap = (machineId: string) => {
+    const ctrl = controls[machineId];
+    if (!ctrl) return;
+    broadcastMachineUpdate(
+      machineId,
+      {
+        temperature_c: ctrl.temp,
+        power_kw: ctrl.power,
+        pressure_bar: ctrl.pressure,
+        vibration_mm_s: ctrl.vibration,
+        primary_resource: ctrl.resource,
+        active_resources: ctrl.activeResources,
+        resource_rate: ctrl.resourceRate,
+      },
+      ctrl.status || 'running'
+    );
   };
 
   // Toggle Machine Power ON / OFF
@@ -494,6 +545,7 @@ export default function MultiMachineSimulationPage() {
             pressure_bar: ctrl.pressure,
             vibration_mm_s: ctrl.vibration,
             primary_resource: ctrl.resource,
+            active_resources: ctrl.activeResources,
             resource_rate: ctrl.resourceRate,
           },
           isWarn ? 'warning' : 'running'
@@ -512,19 +564,21 @@ export default function MultiMachineSimulationPage() {
     }
   };
 
-  // Aggregate overall facility resource statistics
-  const totalPower = Object.values(controls).reduce((acc, c) => acc + (c.power || 0), 0);
+  // Aggregate overall facility resource statistics (multi-resource support)
+  const totalPower = Object.values(controls)
+    .filter((c) => c.status !== 'offline' && (c.activeResources ? c.activeResources.includes('electricity') : true))
+    .reduce((acc, c) => acc + (c.power || 0), 0);
   const totalDiesel = Object.values(controls)
-    .filter((c) => c.resource === 'diesel')
+    .filter((c) => c.status !== 'offline' && (c.activeResources ? c.activeResources.includes('diesel') : c.resource === 'diesel'))
     .reduce((acc, c) => acc + (c.resourceRate || 0), 0);
   const totalPetrol = Object.values(controls)
-    .filter((c) => c.resource === 'petrol')
+    .filter((c) => c.status !== 'offline' && (c.activeResources ? c.activeResources.includes('petrol') : c.resource === 'petrol'))
     .reduce((acc, c) => acc + (c.resourceRate || 0), 0);
   const totalHydrogen = Object.values(controls)
-    .filter((c) => c.resource === 'hydrogen')
+    .filter((c) => c.status !== 'offline' && (c.activeResources ? c.activeResources.includes('hydrogen') : c.resource === 'hydrogen'))
     .reduce((acc, c) => acc + (c.resourceRate || 0), 0);
   const totalKerosene = Object.values(controls)
-    .filter((c) => c.resource === 'kerosene')
+    .filter((c) => c.status !== 'offline' && (c.activeResources ? c.activeResources.includes('kerosene') : c.resource === 'kerosene'))
     .reduce((acc, c) => acc + (c.resourceRate || 0), 0);
 
   const avgTemp =
@@ -798,38 +852,76 @@ export default function MultiMachineSimulationPage() {
                     />
                   </div>
 
-                  {/* Resource Select */}
+                  {/* Multi-Select Resource Supply Toggles */}
                   <div className="pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span style={{ color: 'var(--text-tertiary)' }}>Resource Input:</span>
-                      <span className="font-mono text-[10px] text-indigo-500 capitalize">{ctrl.resource}</span>
+                      <span className="font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                        Connected Feeds (Multi-Select):
+                      </span>
+                      <span className="font-mono text-[10px] text-indigo-500">
+                        {ctrl.activeResources?.length || 0} active
+                      </span>
                     </div>
-                    <div className="grid grid-cols-5 gap-1 text-[9px] font-medium">
+
+                    <div className="grid grid-cols-5 gap-1.5 text-[9px] font-semibold">
                       {[
-                        { k: 'electricity', l: '⚡ Grid' },
-                        { k: 'diesel', l: '⛽ Diesel' },
-                        { k: 'petrol', l: '⛽ Petrol' },
-                        { k: 'hydrogen', l: '🧪 H2' },
-                        { k: 'kerosene', l: '🛢️ Kero' },
-                      ].map((r) => (
-                        <button
-                          key={r.k}
-                          onClick={() => handleResourceChange(machine.id, r.k)}
-                          className={`py-1 rounded border text-center transition-colors ${
-                            ctrl.resource === r.k ? 'border-indigo-500 bg-indigo-500/10 text-indigo-600 font-bold' : 'opacity-60 hover:opacity-100'
-                          }`}
-                          style={{ borderColor: ctrl.resource === r.k ? 'var(--accent)' : 'var(--border)' }}
-                        >
-                          {r.l}
-                        </button>
-                      ))}
+                        { k: 'electricity', l: '⚡ Grid', color: '#38bdf8' },
+                        { k: 'diesel', l: '⛽ Diesel', color: '#f97316' },
+                        { k: 'petrol', l: '⛽ Petrol', color: '#eab308' },
+                        { k: 'hydrogen', l: '🧪 H2', color: '#10b981' },
+                        { k: 'kerosene', l: '🛢️ Kero', color: '#a855f7' },
+                      ].map((r) => {
+                        const isSelected = ctrl.activeResources?.includes(r.k);
+                        return (
+                          <button
+                            key={r.k}
+                            type="button"
+                            onClick={() => handleToggleResource(machine.id, r.k)}
+                            className={`py-1.5 px-1 rounded-lg border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${
+                              isSelected
+                                ? 'font-bold shadow-sm'
+                                : 'opacity-40 hover:opacity-80'
+                            }`}
+                            style={{
+                              borderColor: isSelected ? r.color : 'var(--border)',
+                              backgroundColor: isSelected ? `${r.color}18` : 'transparent',
+                              color: isSelected ? r.color : 'var(--text-tertiary)',
+                            }}
+                            title={`Click to turn ${isSelected ? 'OFF' : 'ON'} ${r.l} feed for this machine`}
+                          >
+                            <span>{r.l}</span>
+                            <span className={`text-[8px] font-mono px-1 rounded ${isSelected ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-400'}`}>
+                              {isSelected ? 'ON' : 'OFF'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Active feed summary */}
+                    <div className="mt-1.5 text-[9px] text-slate-400 font-mono truncate">
+                      {!ctrl.activeResources || ctrl.activeResources.length === 0 ? (
+                        <span className="text-amber-500 italic">No supply lines connected</span>
+                      ) : (
+                        <span>Connected: {ctrl.activeResources.map((k) => k.toUpperCase()).join(' + ')}</span>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Action Button */}
+              {/* Action Buttons */}
               <div className="pt-3 border-t flex items-center gap-2" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  onClick={() => handleSyncToMap(machine.id)}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold border hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 shrink-0"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                  title="Force immediate broadcast and database sync to PC1 floor plan"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Sync Feeds</span>
+                </button>
+
                 <button
                   onClick={() => handleRunSimulation(machine.id)}
                   disabled={ctrl.isSimulating}

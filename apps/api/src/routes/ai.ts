@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { aiService } from '../services/ai.js';
-import { StructuredAIRequest } from '@simulens/shared';
+import { StructuredAIRequest, CopilotChatRequest } from '@simulens/shared';
 
 export async function aiRoutes(fastify: FastifyInstance) {
   // POST /api/ai/interpret
@@ -12,4 +12,15 @@ export async function aiRoutes(fastify: FastifyInstance) {
     const interpreted = await aiService.interpretQuery(req);
     return interpreted;
   });
+
+  // POST /api/ai/chat
+  fastify.post('/chat', async (request, reply) => {
+    const req = request.body as CopilotChatRequest;
+    if (!req || !req.message) {
+      return reply.badRequest('message is required');
+    }
+    const response = await aiService.chatWithCopilot(req);
+    return response;
+  });
 }
+

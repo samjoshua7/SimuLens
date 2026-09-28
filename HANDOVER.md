@@ -1,10 +1,124 @@
 # Handover Summary — SimuLens
 
-> **Current task:** Precise Desired Position Card Placement, Spacebar Canvas Pan Navigation, Non-Passive Trackpad Pinch-to-Zoom, In-Place Simulation Popup Card, Animated Multi-Resource Supply Grid (Power, Diesel, Petrol, Hydrogen, Kerosene), Customizable Overall Statistics HUD, and PC1 ↔ PC2 Multi-Screen Real-Time Operations.
+> **Current task:** Right-Side AI Copilot Chatbot (`right_side_nav_bar`) with Challenge #44 4 Core Causal Abilities, Live Plant Intelligence, Embedded Simulation Cards & Direct Floor Map Action Execution Completed.
 
 ---
 
-## 1. Objective & Enhancements Completed
+## 1. Right-Side AI Copilot Chatbot (`right_side_nav_bar`) (Completed)
+
+1. **Docked Industrial Navigation Bar (`RightSideAIChat.tsx`):**
+   - Mounted directly inside the floor plan canvas (`/dashboard/[orgSlug]/[branchId]`).
+   - Pinned on the right side (`w-[410px]`, full height, `z-40`, smooth slide transition) with zero overlap on machinery.
+   - Header with glowing Sparkles icon (`✨`), SCM / Claude 3.5 Sonnet badges, machine focus dropdown, and close toggle.
+   - Live plant health strip: aggregate facility load %, peak temperature, conformal 90% calibration score, and thermal hotspot alerts.
+
+2. **Full Challenge #44 Four Core Causal Abilities:**
+   - **Ability 1 (Next-State Prediction):** Forecasts $S_{t+1}$ with conformal 90% uncertainty envelope and explicit assumptions (A1, A2, A3).
+   - **Ability 2 (Action-Conditioned Trajectory):** Multi-step horizon rollouts under chosen control sequences.
+   - **Ability 3 (Deliberate Interventions):** Graph surgery $do(X = x)$ severing incoming parent causal edges ($PA_X \leftarrow \emptyset$), calculating expected divergence, and providing 1-click **"⚡ Apply to Floor Map"** button.
+   - **Ability 4 (Counterfactual "What-If"):** Pearl's 3-step abduction: infer historical exogenous noise $\boldsymbol{\epsilon}_t$ from observed telemetry, substitute hypothetical action, and re-simulate under invariant noise.
+
+3. **Embedded Interactive Simulation Cards:**
+   - Instead of simple text, the chat feed renders interactive cards displaying:
+     - SCM Ability Badge (`Ability 3: Causal Intervention`, `Ability 4: Counterfactual "What-If"`, etc.).
+     - Graph surgery notation: $do(X = x)$, $PA_X \leftarrow \emptyset$.
+     - Deterministic 90% conformal prediction envelope (Temperature °C $[lo_{90} - hi_{90}]$, Power kW $[lo_{90} - hi_{90}]$).
+     - **"⚡ Apply to Floor Map"**: Executes `handleApplyAiAction` to update floor plan machinery config and telemetry live!
+
+4. **Dual-Tier AI Architecture (Constitutional LLM Boundary):**
+   - **OpenRouter Tier**: Formulates natural language reasoning and JSON action payloads via Claude 3.5 Sonnet / GPT-4o.
+   - **Deterministic Industrial Fallback Tier**: Local expert heuristic in `AIService` calculates plant load, detects hotspots, parses intervention values, and emits structured payloads with 0 latency.
+   - **Numerical Safety Principle**: The LLM NEVER predicts numbers. All numerical predictions come strictly from the deterministic SCM simulator.
+
+5. **Top HUD Integration (`OfficeStatsBar.tsx`):**
+   - Added glowing **`[✨ AI Copilot]`** button with pulsing status LED in the top action bar to easily toggle the drawer.
+
+---
+
+## 2. Redesigned Machine Cards & Multi-Select Resource Controls (Completed)
+
+
+1. **Redesigned Floor Map Machine Cards (`MachineNode.tsx` & `machinery.ts`):**
+   - **Spacious, Legible Form Factor**: Upgraded dimensions from cramped 120–140px width to **195px × 125px** (`Math.max(195, ...)` & `Math.max(125, ...)`), eliminating text clipping and overflow.
+   - **Full Title & Category Subtitle**: Displays complete legible machine name (e.g. `Industrial Steam Boiler`, `Centrifugal Chiller`) without 3-letter truncations.
+   - **Quick Power Switch `⏻`**: Master power toggle with glowing green ON and muted slate OFF states.
+   - **Pulsing Status Pill**: Real-time status indicator (`Running`, `Idle`, `Warning`, `Critical`, `Offline`) with pulsing LED dot.
+   - **At-A-Glance Basic Operational Metrics (Visible Without Hovering)**:
+     - 🌡️ **Temperature**: E.g. `70.2°C`, dynamically color-coded (emerald < 75°C, amber 75–85°C, rose > 85°C).
+     - ⚡ **Power Draw**: E.g. `19.5 kW` (or `0.0 kW` if offline).
+     - ⚙️ **Plant Operating Load**: E.g. `Load 75%` with a sleek 4px miniature progress bar.
+     - 📊 **Pressure & Vibration**: E.g. `4.2 bar` · `1.80 mm/s`.
+   - **Connected Resource Feeds Strip**: Micro-badges at the bottom of the card displaying all active feeds (`⚡ Grid`, `⛽ Diesel 14.5 L/h`, `⛽ Petrol`, `🧪 H₂ Gas`, `🛢️ Kero`).
+
+2. **Multi-Select Resource Controls in Simulation Station (`/simulation/page.tsx`):**
+   - **Multi-Select Matrix**: Replaced single-choice radio with independent toggle chips for:
+     - `⚡ Grid (415V Electric Bus)`
+     - `⛽ Diesel`
+     - `⛽ Petrol / Gasoline`
+     - `🧪 Hydrogen (H₂ Gas)`
+     - `🛢️ Kerosene`
+   - Operators can turn any combination ON or OFF for each individual machine.
+   - **Instant Cross-Screen Sync (PC2 → PC1)**:
+     - Toggling any resource immediately broadcasts `active_resources` over Supabase Realtime channel `branch_sync_${branchId}` (<10ms) and saves to `branch_machines.config_json`.
+     - Added an explicit **"⚡ Sync Feeds"** button next to "Run Causal Rollout" for manual synchronization.
+   - **Aggregate Resource Accounting**: Total Grid Draw, Diesel, Petrol, Hydrogen, and Kerosene rates dynamically update across all active multi-resource configurations.
+
+3. **Dynamic Conduits on Floor Map Canvas (`ResourceGridOverlay.tsx`):**
+   - Supports `machine.config_json?.active_resources` array.
+   - Conduits from top stations (Grid Substation 415V, Diesel Manifold, Petrol Station, Hydrogen Cell Bank, Kerosene Reservoir) automatically connect and disconnect in real-time when toggled in the simulation station.
+
+4. **In-Place Simulation Popup Card (`MachineSimulationPopup.tsx`):**
+   - Updated popup resource selector to match the multi-select toggle chip matrix with live broadcast to the floor plan.
+
+---
+
+## 2. Phase 0: Foundations & Data Contracts (Completed)
+
+1. **Shared Alert & Copilot Data Contracts (`@simulens/shared`):**
+   - Pure TypeScript definitions in `packages/shared/src/types/alerts.ts` and exported via `index.ts`:
+     - `AlertSeverity` (`'info' | 'caution' | 'warning' | 'critical'`)
+     - `AlertStatus` (`'open' | 'acknowledged' | 'resolved'`)
+     - `AlertRuleKey` (`'temp_high' | 'temp_trend' | 'pressure_high' | 'vibration_high' | 'power_overload' | 'predicted_breach' | 'residual_anomaly' | 'machine_offline'`)
+     - `AlertEvidence`: quantitative telemetry snapshot, nominal & limit margins, slope per simulated minute, time-to-limit projection, and prediction envelope metrics.
+     - `InterventionCandidate`: Pareto trade-off candidate computed by causal reasoning engine (`p_breach_after`, `power_delta_kw`, `reliability`).
+     - `AIAnalysis`: plain-language structured explanation (`headline`, `what_is_happening`, `likely_causes`, `recommended_actions`, `urgency`, `source: 'llm' | 'template'`).
+     - `AlertRecord`: full database and state schema.
+
+2. **Fastify API Security & Auth Plugin (`apps/api/src/plugins/auth.ts`):**
+   - Validates incoming `Authorization: Bearer <token>` against `supabase.auth.getUser(token)`.
+   - Decorates `request.user` with authenticated identity (`id`, `email`, `role`).
+   - Public paths `/health` and `/api/causal/graph` bypass auth; local dev environment falls back gracefully to a mock operator identity.
+   - Enforces 401 Unauthorized in production when tokens are missing or invalid.
+
+3. **API Rate Limiting Plugin (`apps/api/src/plugins/rateLimit.ts`):**
+   - In-memory sliding-window token bucket keyed by authenticated user ID or client IP.
+   - Tiered limits: 120 req/min for general simulation/prediction endpoints; 15 req/min for AI endpoints (`/api/ai/*`) to protect OpenRouter API credits.
+   - Emits RFC-compliant headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and returns HTTP 429 with `Retry-After`.
+
+4. **Web Client Bearer Token Injection (`apps/web/src/lib/api.ts`):**
+   - Automatically retrieves active session token from `supabase.auth.getSession()` and injects `Authorization: Bearer ${token}` on all HTTP requests to both primary and cloud failover endpoints.
+
+5. **Batch Machine Stepping Endpoint (`POST /api/simulation/step-batch`):**
+   - Evaluates multi-machine facility state transitions in a single network round-trip.
+   - Stepped with true thermodynamic ODE physics and explicit seeded Gaussian noise.
+   - Includes client-side physics fallback in `apps/web/src/lib/api.ts` for zero-downtime offline operation.
+
+6. **Client-Side Telemetry Ring Buffer (`apps/web/src/lib/telemetryBuffer.ts`):**
+   - Stores up to 120 samples per machine in memory (2–4 minutes of operational history).
+   - Computes ordinary least-squares (OLS) linear regression slope ($\Delta T / \Delta t$) and correlation coefficient ($R^2$).
+   - Computes predictive `estimateTimeToLimit()` for proactive early warning detection.
+   - Verified via unit test `apps/web/src/lib/__tests__/telemetryBuffer.test.ts`.
+
+7. **Database Migration 004 (`supabase/migrations/004_alerts_ai.sql` & `full_schema.sql`):**
+   - Created table `public.alerts` with deterministic evidence and candidate payloads.
+   - Created partial unique index `uq_alerts_open` on `dedupe_key` preventing duplicate alert spam.
+   - Row-Level Security scoped to organization membership via `public.is_org_member()`.
+   - Scoped `ai_sessions` to `branch_id`.
+   - Enabled Supabase Realtime publication on `public.alerts`.
+
+---
+
+## 2. Pre-Existing Achievements (Floor Plan, Real-Time & Physics)
 
 1. **Spacebar + Mouse Drag Map Navigation (Figma / CAD Style):**
    - Holding `[SPACEBAR]` switches cursor to `grab` / `grabbing` and enables panning anywhere across the floor plan canvas without selecting nodes or scrolling the page.

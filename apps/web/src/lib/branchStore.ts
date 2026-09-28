@@ -16,7 +16,10 @@ export interface CachedMachine {
   config_json: Record<string, any>;
   status: 'idle' | 'running' | 'warning' | 'critical' | 'offline';
   created_at: string;
+  telemetry?: Record<string, any>;
+  config?: Record<string, any>;
 }
+
 
 export interface CachedBranch {
   id: string;
