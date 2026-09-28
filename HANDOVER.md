@@ -6,11 +6,14 @@
 
 ## 1. Right-Side AI Copilot Chatbot (`right_side_nav_bar`) (Completed)
 
-1. **Docked Industrial Navigation Bar (`RightSideAIChat.tsx`):**
-   - Mounted directly inside the floor plan canvas (`/dashboard/[orgSlug]/[branchId]`).
-   - Pinned on the right side (`w-[410px]`, full height, `z-40`, smooth slide transition) with zero overlap on machinery.
+1. **Non-Overlapping 50/50 Split Screen (`RightSideAIChat.tsx` & `page.tsx`):**
+   - Open by default on the right side of the canvas screen (`/dashboard/[orgSlug]/[branchId]`).
+   - The map container collapses smoothly to half size (`w-full md:w-1/2 lg:w-1/2 shrink-0 min-w-0`), sitting side-by-side with the AI Copilot (`w-full md:w-1/2 lg:w-1/2 shrink-0`).
+   - Zero overlap or occlusion: machines, top HUD controls, and power conduits are 100% visible and interactive.
    - Header with glowing Sparkles icon (`✨`), SCM / Claude 3.5 Sonnet badges, machine focus dropdown, and close toggle.
    - Live plant health strip: aggregate facility load %, peak temperature, conformal 90% calibration score, and thermal hotspot alerts.
+   - Fixed 404 error by routing `localhost` to `http://localhost:8000`, adding client SCM deterministic fallback, and pushing commit `4bc2ade` to GitHub to update Render/Vercel.
+
 
 2. **Full Challenge #44 Four Core Causal Abilities:**
    - **Ability 1 (Next-State Prediction):** Forecasts $S_{t+1}$ with conformal 90% uncertainty envelope and explicit assumptions (A1, A2, A3).
