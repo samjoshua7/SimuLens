@@ -1,0 +1,1 @@
+{"version":3,"file":"rng.d.ts","sourceRoot":"","sources":["rng.ts"],"names":[],"mappings":"AAAA;;;GAGG;AACH,qBAAa,SAAS;IACpB,OAAO,CAAC,KAAK,CAAS;gBAEV,IAAI,GAAE,MAAW;IAI7B;;OAEG;IACH,SAAS,IAAI,MAAM;IAOnB;;;OAGG;IACH,YAAY,CAAC,IAAI,GAAE,MAAU,EAAE,GAAG,GAAE,MAAU,GAAG,MAAM;CAUxD"}
