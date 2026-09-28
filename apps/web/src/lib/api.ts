@@ -226,7 +226,7 @@ function generateFallbackCopilotResponse(req: CopilotChatRequest): CopilotChatRe
 
   if (isCounterfactual) {
     return {
-      message: `### 🔁 Counterfactual Analysis ("What If") Query\n\n**Abduction Target:** ${targetLabel} (${targetId})\n**Hypothetical Alternative Action:** Set \`${variable}\` to **${value}%** during historical run.\n\nUnder Pearl's 3-step SCM abduction:\n1. **Abduction:** Exogenous noise vector $\\boldsymbol{\\epsilon}_t$ is inferred from observed historical telemetry and held strictly invariant.\n2. **Action:** Structural mechanism $f_{${variable}}$ is replaced by constant $do(${variable} = ${value}\\%)$.\n3. **Prediction:** Historical trajectory is re-simulated under the abducted noise.\n\n*Click below to execute the counterfactual replay on the SCM engine.*`,
+      message: `### 🔁 Counterfactual Analysis ("What If") Query\n\n**Abduction Target:** ${targetLabel} (${targetId})\n**Hypothetical Alternative Action:** Set \`${variable}\` to **${value}%** during historical run.\n\nUnder Pearl's 3-step SCM abduction:\n1. **Abduction:** Exogenous noise vector ε_t is inferred from observed historical telemetry and held strictly invariant.\n2. **Action:** Structural mechanism $f_{${variable}}$ is replaced by constant $do(${variable} = ${value}\\%)$.\n3. **Prediction:** Historical trajectory is re-simulated under the abducted noise.\n\n*Click below to execute the counterfactual replay on the SCM engine.*`,
       intent: 'counterfactual',
       target_machine_id: targetId,
       recognized_action: { variable, value, horizon: 6 },
@@ -261,7 +261,7 @@ function generateFallbackCopilotResponse(req: CopilotChatRequest): CopilotChatRe
 
   if (isReliability) {
     return {
-      message: `### 🎯 Uncertainty Calibration & Reliability Map\n\n**Confidence Interval:** Conformalized 90% prediction envelope ($[\\hat{y}_{lo}, \\hat{y}_{hi}]$).\n**Calibration Quality:** Empirical test coverage $\\approx 89.4\\%$ on 500-step held-out rollout.\n**Out-of-Distribution (OOD) Guardrail:** Epistemic divergence metric warns operators when telemetry enters uncalibrated physical regimes.`,
+      message: `### 🎯 Uncertainty Calibration & Reliability Map\n\n**Confidence Interval:** Conformalized 90% prediction envelope ([y_lo, y_hi]).\n**Calibration Quality:** Empirical test coverage ≈ 89.4% on 500-step held-out rollout.\n**Out-of-Distribution (OOD) Guardrail:** Epistemic divergence metric warns operators when telemetry enters uncalibrated physical regimes.`,
       intent: 'explain',
       target_machine_id: targetId,
       simulation_payload: { ability: 'reliability', target_machine_id: targetId },

@@ -259,7 +259,7 @@ Respond STRICTLY as JSON with this schema:
     // 3. Response generation based on Intent
     if (isCounterfactual) {
       return {
-        message: `### 🔁 Counterfactual Analysis ("What If") Query\n\n**Abduction Target:** ${targetLabel} (${targetId})\n**Hypothetical Alternative Action:** Set \`${variable}\` to **${value}%** during historical run.\n\nUnder Pearl's 3-step SCM abduction:\n1. **Abduction:** Exogenous noise vector $\\boldsymbol{\\epsilon}_t$ is inferred from observed historical telemetry and held strictly invariant.\n2. **Action:** Structural mechanism $f_{${variable}}$ is replaced by constant $do(${variable} = ${value}\\%)$.\n3. **Prediction:** Historical trajectory is re-simulated under the abducted noise.\n\n*Click below to execute the counterfactual replay on the SCM engine.*`,
+        message: `### 🔁 Counterfactual Analysis ("What If") Query\n\n**Abduction Target:** ${targetLabel} (${targetMachine?.machine_type ?? 'Machinery'})\n**Hypothetical Alternative Action:** Set \`${variable}\` to **${value}%** during historical run.\n\nUnder Pearl's 3-step SCM abduction:\n1. **Abduction:** Exogenous noise vector ε_t is inferred from observed historical telemetry and held strictly invariant.\n2. **Action:** Structural mechanism f_${variable} is replaced by constant do(${variable} = ${value}%).\n3. **Prediction:** Historical trajectory is re-simulated under the abducted noise.\n\n*Click below to execute the counterfactual replay on the SCM engine.*`,
         intent: 'counterfactual',
         target_machine_id: targetId,
         recognized_action: { variable, value, horizon: 6 },
@@ -286,7 +286,7 @@ Respond STRICTLY as JSON with this schema:
 
     if (isIntervention) {
       return {
-        message: `### 🛠️ Causal Intervention: $do(${variable} = ${value}\\%)$\n\n**Target Unit:** ${targetLabel} (${targetId})\n**Graph Surgery:** Severe incoming causal edges to \`${variable}\` ($PA_{${variable}} \\leftarrow \\emptyset$), setting it to fixed value **${value}%**.\n\nThis deliberate intervention bypasses natural feedback loops (e.g. thermostat or automatic fan controller) to observe downstream causal effects on **temperature**, **power draw**, and **compressor pressure**.\n\n*Click "Run Causal Rollout" or "Apply to Floor Map" to inject this intervention.*`,
+        message: `### 🛠️ Causal Intervention: do(${variable} = ${value}%)\n\n**Target Unit:** ${targetLabel} (${targetMachine?.machine_type ?? 'Machinery'})\n**Graph Surgery:** Sever incoming causal edges to \`${variable}\` (PA_${variable} ← ∅), setting it to fixed value **${value}%**.\n\nThis deliberate intervention bypasses natural feedback loops (e.g. thermostat or automatic fan controller) to observe downstream causal effects on **temperature**, **power draw**, and **compressor pressure**.\n\n*Click "Apply to Floor Map" below to inject this intervention.*`,
         intent: 'intervention',
         target_machine_id: targetId,
         recognized_action: { variable, value, horizon: 6 },
@@ -337,7 +337,7 @@ Respond STRICTLY as JSON with this schema:
 
     if (isReliability) {
       return {
-        message: `### 🎯 Uncertainty Calibration & Reliability Map\n\n**Confidence Interval:** Conformalized 90% prediction envelope ($[\\hat{y}_{lo}, \\hat{y}_{hi}]$).\n**Calibration Quality:** Empirical test coverage $\\approx 89.4\\%$ on 500-step held-out rollout.\n**Out-of-Distribution (OOD) Guardrail:** Epistemic divergence metric warns operators when telemetry enters uncalibrated physical regimes (e.g. refrigerant leak or extreme ambient temp).`,
+        message: `### 🎯 Uncertainty Calibration & Reliability Map\n\n**Confidence Interval:** Conformalized 90% prediction envelope ([y_lo, y_hi]).\n**Calibration Quality:** Empirical test coverage ≈ 89.4% on 500-step held-out rollout.\n**Out-of-Distribution (OOD) Guardrail:** Epistemic divergence metric warns operators when telemetry enters uncalibrated physical regimes (e.g. refrigerant leak or extreme ambient temp).`,
         intent: 'explain',
         target_machine_id: targetId,
         simulation_payload: {

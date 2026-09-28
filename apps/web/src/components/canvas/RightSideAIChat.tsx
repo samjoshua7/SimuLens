@@ -51,6 +51,224 @@ interface RightSideAIChatProps {
   branchId: string;
 }
 
+
+function RichMessageRenderer({ content }: { content: string }) {
+  const renderInline = (text: string): React.ReactNode => {
+    // 1. Clean any raw UUIDs like (0b79627d-6187-47df-a050-4f2d818b4404)
+    let cleaned = text.replace(/\s*\([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\)/g, '');
+    // 2. Clean raw LaTeX math markers $...$
+    cleaned = cleaned.replace(/\$([^\$]+)\$/g, '$1');
+    // 3. Clean raw escaped percent
+    cleaned = cleaned.replace(/\\%/g, '%');
+
+    // Tokenize by `code`, **bold**, and *italic*
+    const tokens = cleaned.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+    return tokens.map((token, i) => {
+      if (!token) return null;
+      if (token.startsWith('`') && token.endsWith('`')) {
+        return (
+          <code
+            key={i}
+            className="font-mono text-[10.5px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40"
+          >
+            {token.slice(1, -1)}
+          </code>
+        );
+      }
+      if (token.startsWith('**') && token.endsWith('**')) {
+        return (
+          <strong key={i} className="font-semibold text-slate-900 dark:text-white">
+            {token.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (token.startsWith('*') && token.endsWith('*')) {
+        return (
+          <em key={i} className="italic text-slate-600 dark:text-slate-400">
+            {token.slice(1, -1)}
+          </em>
+        );
+      }
+      return <span key={i}>{token}</span>;
+    });
+  };
+
+  const paragraphs = content.split(/\r?\n\s*\r?\n/);
+
+  return (
+    <div className="space-y-2 break-words text-xs leading-relaxed">
+      {paragraphs.map((p, idx) => {
+        const trimmed = p.trim();
+        if (!trimmed) return null;
+
+        // A. Heading (### or ##)
+        if (trimmed.startsWith('#')) {
+          const headingText = trimmed.replace(/^#+\s*/, '');
+          return (
+            <div key={idx} className="flex items-center gap-1.5 pb-1 border-b border-slate-200 dark:border-slate-700/60 mt-1">
+              <h4 className="font-bold text-xs text-indigo-600 dark:text-indigo-400 tracking-wide flex items-center gap-1.5">
+                {renderInline(headingText)}
+              </h4>
+            </div>
+          );
+        }
+
+        // B. Status & High-level Metrics Row (e.g. **Status:** **CAUTION** | **Active Units:** 4 | **Average Load:** 50%)
+        if (trimmed.includes('Status:') && trimmed.includes('|')) {
+          const parts = trimmed.split('|').map((s) => s.trim());
+          return (
+            <div key={idx} className="flex flex-wrap items-center gap-1.5 py-0.5">
+              {parts.map((part, pIdx) => {
+                const isStatus = part.toLowerCase().includes('status');
+                const isCaution = part.toUpperCase().includes('CAUTION');
+                const isWarning = part.toUpperCase().includes('WARNING') || part.toUpperCase().includes('CRITICAL');
+
+                if (isStatus) {
+                  return (
+                    <span
+                      key={pIdx}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border shadow-2xs ${
+                        isWarning
+                          ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                          : isCaution
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                          : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                      {renderInline(part.replace(/[*_]/g, ''))}
+                    </span>
+                  );
+                }
+
+                return (
+                  <span
+                    key={pIdx}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs"
+                  >
+                    {renderInline(part)}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        }
+
+        // C. Hotspot Warning Banner (starts with ⚠️ or contains 'Hotspots detected:')
+        if (trimmed.startsWith('⚠️') || trimmed.toLowerCase().includes('hotspots detected')) {
+          return (
+            <div
+              key={idx}
+              className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed flex items-start gap-2 shadow-2xs"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>{renderInline(trimmed.replace(/^⚠️\s*/, ''))}</div>
+            </div>
+          );
+        }
+
+        // D. Thermal Stability / Success Banner (starts with ✅)
+        if (trimmed.startsWith('✅')) {
+          return (
+            <div
+              key={idx}
+              className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-[11px] leading-relaxed flex items-start gap-2 shadow-2xs"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div>{renderInline(trimmed.replace(/^✅\s*/, ''))}</div>
+            </div>
+          );
+        }
+
+        // E. Selected Machine Card (starts with 'Selected Machine:' or 'Target Unit:' or 'Abduction Target:')
+        if (
+          trimmed.includes('Selected Machine:') ||
+          trimmed.includes('Target Unit:') ||
+          trimmed.includes('Abduction Target:')
+        ) {
+          const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          const titleLine = lines[0] || '';
+          const bulletLines = lines.slice(1);
+
+          return (
+            <div
+              key={idx}
+              className="p-2.5 rounded-lg border bg-white dark:bg-slate-850/80 border-slate-200 dark:border-slate-700/80 shadow-2xs space-y-2"
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-xs text-slate-900 dark:text-slate-100">
+                <Cpu className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <span>{renderInline(titleLine)}</span>
+              </div>
+
+              {bulletLines.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
+                  {bulletLines.map((line, bIdx) => {
+                    const cleanLine = line.replace(/^[-*]\s*/, '');
+                    const colonIdx = cleanLine.indexOf(':');
+                    const k = colonIdx !== -1 ? cleanLine.slice(0, colonIdx) : cleanLine;
+                    const v = colonIdx !== -1 ? cleanLine.slice(colonIdx + 1) : '';
+                    return (
+                      <div
+                        key={bIdx}
+                        className="p-1.5 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-center"
+                      >
+                        <div className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">
+                          {renderInline(k)}
+                        </div>
+                        <div className="text-[11px] font-mono font-bold text-slate-900 dark:text-white">
+                          {renderInline(v)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // F. Numbered or Bulleted List
+        if (trimmed.split(/\r?\n/).some((l) => /^\s*([-*]|\d+\.)\s+/.test(l))) {
+          const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          return (
+            <ul key={idx} className="space-y-1 pl-1 text-[11px]">
+              {lines.map((line, lIdx) => (
+                <li key={lIdx} className="flex items-start gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5" />
+                  <span className="leading-relaxed text-slate-700 dark:text-slate-300">
+                    {renderInline(line.replace(/^[-*]|\d+\.\s*/, '').trim())}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        // G. Helpful Prompt / Call to action (e.g. Ask me to simulate... or *Click below...)
+        if (trimmed.toLowerCase().startsWith('ask me') || trimmed.startsWith('*Click')) {
+          return (
+            <div
+              key={idx}
+              className="p-2 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-900/50 text-[10.5px] text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span className="leading-relaxed">{renderInline(trimmed)}</span>
+            </div>
+          );
+        }
+
+        // Default Paragraph
+        return (
+          <p key={idx} className="leading-relaxed text-slate-700 dark:text-slate-300">
+            {renderInline(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export function RightSideAIChat({
   isOpen,
   onClose,
