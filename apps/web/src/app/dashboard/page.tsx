@@ -14,6 +14,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { orgStore } from '@/lib/branchStore';
+
 interface Organization {
   id: string;
   name: string;
@@ -28,8 +30,8 @@ interface Organization {
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [orgs, setOrgs] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orgs, setOrgs] = useState<Organization[]>(() => (orgStore.get() as Organization[]) || []);
+  const [loading, setLoading] = useState(() => !orgStore.has());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -37,35 +39,41 @@ export default function DashboardPage() {
 
   const fetchOrgs = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Failed to fetch orgs:', error.message);
-      setOrgs([]);
-    } else {
-      // Fetch counts for each org
-      const enriched = await Promise.all(
-        (data || []).map(async (org: Organization) => {
-          const [members, branches] = await Promise.all([
-            supabase.from('org_members').select('id', { count: 'exact', head: true }).eq('org_id', org.id),
-            supabase.from('branches').select('id', { count: 'exact', head: true }).eq('org_id', org.id),
-          ]);
-          return {
-            ...org,
-            member_count: members.count || 0,
-            branch_count: branches.count || 0,
-          };
-        })
-      );
-      setOrgs(enriched);
+    if (!orgStore.has()) {
+      setLoading(true);
     }
-    setLoading(false);
-  }, [user]);
+
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to fetch orgs:', error.message);
+        if (!orgStore.has()) setOrgs([]);
+      } else {
+        // Fetch counts for each org
+        const enriched = await Promise.all(
+          (data || []).map(async (org: Organization) => {
+            const [members, branches] = await Promise.all([
+              supabase.from('org_members').select('id', { count: 'exact', head: true }).eq('org_id', org.id),
+              supabase.from('branches').select('id', { count: 'exact', head: true }).eq('org_id', org.id),
+            ]);
+            return {
+              ...org,
+              member_count: members.count || 0,
+              branch_count: branches.count || 0,
+            };
+          })
+        );
+        setOrgs(enriched);
+        orgStore.set(enriched);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     fetchOrgs();

@@ -13,7 +13,14 @@ import {
   ValidationSummary
 } from '@simulens/shared';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://simulens.onrender.com'
+    : process.env.NODE_ENV === 'production'
+    ? 'https://simulens.onrender.com'
+    : 'http://localhost:8000')
+).replace(/\/$/, '');
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {

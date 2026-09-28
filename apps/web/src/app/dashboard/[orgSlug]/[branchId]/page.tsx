@@ -155,7 +155,7 @@ export default function BranchCanvasPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, orgSlug, branchId, router]);
+  }, [user?.id, orgSlug, branchId, router]);
 
   useEffect(() => {
     fetchData(true);

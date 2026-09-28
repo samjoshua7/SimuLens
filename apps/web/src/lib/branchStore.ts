@@ -124,3 +124,44 @@ export const branchStore = {
     return memoryStore.has(branchId);
   },
 };
+
+// =============================================================================
+// Organization List In-Memory Cache (Zero-flicker on tab switch)
+// =============================================================================
+let cachedOrgs: any[] | null = null;
+
+export const orgStore = {
+  get(): any[] | null {
+    return cachedOrgs;
+  },
+  set(orgs: any[]) {
+    cachedOrgs = orgs;
+  },
+  has(): boolean {
+    return cachedOrgs !== null;
+  },
+  clear() {
+    cachedOrgs = null;
+  },
+};
+
+// =============================================================================
+// Org Branches In-Memory Cache (Zero-flicker on tab switch)
+// =============================================================================
+const orgBranchesStore = new Map<string, { org: any; branches: any[] }>();
+
+export const branchListStore = {
+  get(orgSlug: string) {
+    return orgBranchesStore.get(orgSlug) || null;
+  },
+  set(orgSlug: string, org: any, branches: any[]) {
+    orgBranchesStore.set(orgSlug, { org, branches });
+  },
+  has(orgSlug: string): boolean {
+    return orgBranchesStore.has(orgSlug);
+  },
+  clear() {
+    orgBranchesStore.clear();
+  },
+};
+

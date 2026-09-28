@@ -396,5 +396,6 @@ For bulk trajectories:
 ## 6. Migration Plan
 1. `supabase/migrations/001_init.sql` — Schema initialization: `profiles`, `simulator_configs`, `datasets`, `episodes`, `steps`, and restricted `ground_truth` schema.
 2. `supabase/migrations/002_multi_tenant.sql` — Multi-tenant hierarchy: `organizations`, `org_members`, `branches`, `branch_machines`, non-recursive RLS helper functions, and user sync triggers.
-3. `supabase/full_schema.sql` — Complete combined idempotent SQL bundle ready for the Supabase SQL editor.
+3. `supabase/migrations/003_realtime_publication.sql` — Enables `supabase_realtime` publication for `branch_machines` and `branches` for multi-screen live sync.
+4. `supabase/full_schema.sql` — Complete combined idempotent SQL bundle ready for the Supabase SQL editor.
 

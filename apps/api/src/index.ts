@@ -26,8 +26,10 @@ export async function buildApp() {
 
   await app.register(sensible);
   await app.register(cors, {
-    origin: true, // Allow frontend dev server and production origins
+    origin: true, // Allow frontend dev server and production origins (including https://simu-lens.vercel.app)
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   });
 
   // Health check

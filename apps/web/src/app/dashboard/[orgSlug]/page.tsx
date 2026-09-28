@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { branchListStore } from '@/lib/branchStore';
+
 interface Branch {
   id: string;
   org_id: string;
@@ -40,9 +42,10 @@ export default function OrgBranchesPage() {
   const params = useParams();
   const orgSlug = params.orgSlug as string;
 
-  const [org, setOrg] = useState<Organization | null>(null);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = branchListStore.get(orgSlug);
+  const [org, setOrg] = useState<Organization | null>(cached ? (cached.org as Organization) : null);
+  const [branches, setBranches] = useState<Branch[]>(cached ? (cached.branches as Branch[]) : []);
+  const [loading, setLoading] = useState(!cached);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchAddress, setNewBranchAddress] = useState('');
@@ -51,41 +54,47 @@ export default function OrgBranchesPage() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
-
-    // Fetch org by slug
-    const { data: orgData, error: orgError } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('slug', orgSlug)
-      .single();
-
-    if (orgError || !orgData) {
-      router.replace('/dashboard');
-      return;
+    if (!branchListStore.has(orgSlug)) {
+      setLoading(true);
     }
-    setOrg(orgData);
 
-    // Fetch branches
-    const { data: branchData } = await supabase
-      .from('branches')
-      .select('*')
-      .eq('org_id', orgData.id)
-      .order('created_at', { ascending: false });
+    try {
+      // Fetch org by slug
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('slug', orgSlug)
+        .single();
 
-    const enriched = await Promise.all(
-      (branchData || []).map(async (branch: Branch) => {
-        const { count } = await supabase
-          .from('branch_machines')
-          .select('id', { count: 'exact', head: true })
-          .eq('branch_id', branch.id);
-        return { ...branch, machine_count: count || 0 };
-      })
-    );
+      if (orgError || !orgData) {
+        router.replace('/dashboard');
+        return;
+      }
+      setOrg(orgData);
 
-    setBranches(enriched);
-    setLoading(false);
-  }, [user, orgSlug, router]);
+      // Fetch branches
+      const { data: branchData } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('org_id', orgData.id)
+        .order('created_at', { ascending: false });
+
+      const enriched = await Promise.all(
+        (branchData || []).map(async (branch: Branch) => {
+          const { count } = await supabase
+            .from('branch_machines')
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branch.id);
+          return { ...branch, machine_count: count || 0 };
+        })
+      );
+
+      setBranches(enriched);
+      branchListStore.set(orgSlug, orgData, enriched);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, orgSlug, router]);
 
   useEffect(() => {
     fetchData();

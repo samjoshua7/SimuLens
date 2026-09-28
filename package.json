@@ -11,6 +11,10 @@
     "dev:api": "npm run dev --workspace=@simulens/api",
     "dev:web": "npm run dev --workspace=@simulens/web",
     "build:packages": "npm run build --workspace=@simulens/shared && npm run build --workspace=@simulens/simulation-engine && npm run build --workspace=@simulens/world-model && npm run build --workspace=@simulens/reasoning-engine",
+    "build:api": "npm run build:packages && npm run build --workspace=@simulens/api",
+    "build:web": "npm run build:packages && npm run build --workspace=@simulens/web",
+    "start:api": "npm run start --workspace=@simulens/api",
+    "start:web": "npm run start --workspace=@simulens/web",
     "build": "npm run build:packages && npm run build --workspace=@simulens/api && npm run build --workspace=@simulens/web",
     "test": "npm run test --workspace=@simulens/simulation-engine && npm run test --workspace=@simulens/reasoning-engine && npm run test --workspace=@simulens/api",
     "lint": "npm run lint --workspaces"

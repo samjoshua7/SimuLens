@@ -85,31 +85,45 @@ export default function MultiMachineSimulationPage() {
       const loadedMachines: CachedMachine[] = mData || [];
       setMachines(loadedMachines);
 
-      // Initialize control sliders
-      const initControls: typeof controls = {};
-      loadedMachines.forEach((m) => {
-        const preset = getPresetForType(m.machine_type);
-        const tele = m.config_json?.current_telemetry || {};
-        initControls[m.id] = {
-          load: m.config_json?.load ?? 75,
-          fan: m.config_json?.fan ?? 60,
-          coolant: m.config_json?.coolant ?? 50,
-          resource: m.config_json?.primary_resource ?? (m.machine_type === 'boiler' ? 'diesel' : 'electricity'),
-          resourceRate: m.config_json?.resource_rate ?? 12.0,
-          temp: tele.temperature_c ?? preset.specs.nominal_temp_c,
-          power: tele.power_kw ?? preset.specs.rated_power_kw,
-          pressure: tele.pressure_bar ?? preset.specs.nominal_pressure_bar,
-          vibration: tele.vibration_mm_s ?? preset.specs.nominal_vib_mm_s,
-          isSimulating: false,
-        };
+      // Initialize or non-destructively merge control sliders
+      setControls((prevControls) => {
+        const nextControls: typeof controls = { ...prevControls };
+        loadedMachines.forEach((m) => {
+          const preset = getPresetForType(m.machine_type);
+          const tele = m.config_json?.current_telemetry || {};
+          const existing = prevControls[m.id];
+          if (!existing) {
+            nextControls[m.id] = {
+              load: m.config_json?.load ?? 75,
+              fan: m.config_json?.fan ?? 60,
+              coolant: m.config_json?.coolant ?? 50,
+              resource: m.config_json?.primary_resource ?? (m.machine_type === 'boiler' ? 'diesel' : 'electricity'),
+              resourceRate: m.config_json?.resource_rate ?? 12.0,
+              temp: tele.temperature_c ?? preset.specs.nominal_temp_c,
+              power: tele.power_kw ?? preset.specs.rated_power_kw,
+              pressure: tele.pressure_bar ?? preset.specs.nominal_pressure_bar,
+              vibration: tele.vibration_mm_s ?? preset.specs.nominal_vib_mm_s,
+              isSimulating: false,
+            };
+          } else {
+            // Keep user's active slider inputs intact, merge updated telemetry
+            nextControls[m.id] = {
+              ...existing,
+              temp: tele.temperature_c ?? existing.temp,
+              power: tele.power_kw ?? existing.power,
+              pressure: tele.pressure_bar ?? existing.pressure,
+              vibration: tele.vibration_mm_s ?? existing.vibration,
+            };
+          }
+        });
+        return nextControls;
       });
-      setControls(initControls);
     } catch (e) {
       console.error('Error fetching simulation console data:', e);
     } finally {
       setLoading(false);
     }
-  }, [user, branchId, orgSlug, router]);
+  }, [user?.id, branchId, orgSlug, router]);
 
   useEffect(() => {
     fetchData();
