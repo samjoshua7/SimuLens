@@ -1,18 +1,23 @@
 # Handover Summary — SimuLens
 
-> **Current task:** Right-Side AI Copilot Chatbot (`right_side_nav_bar`) with Challenge #44 4 Core Causal Abilities, Live Plant Intelligence, Embedded Simulation Cards & Direct Floor Map Action Execution Completed.
+> **Current task:** AI Copilot Placement & Full Light/Dark Theme Switching Integration Completed.
 
 ---
 
-## 1. Right-Side AI Copilot Chatbot (`right_side_nav_bar`) (Completed)
+## 1. AI Copilot Placement & Full Theme Switching (Completed)
 
-1. **Non-Overlapping 50/50 Split Screen (`RightSideAIChat.tsx` & `page.tsx`):**
-   - Open by default on the right side of the canvas screen (`/dashboard/[orgSlug]/[branchId]`).
-   - The map container collapses smoothly to half size (`w-full md:w-1/2 lg:w-1/2 shrink-0 min-w-0`), sitting side-by-side with the AI Copilot (`w-full md:w-1/2 lg:w-1/2 shrink-0`).
-   - Zero overlap or occlusion: machines, top HUD controls, and power conduits are 100% visible and interactive.
-   - Header with glowing Sparkles icon (`✨`), SCM / Claude 3.5 Sonnet badges, machine focus dropdown, and close toggle.
-   - Live plant health strip: aggregate facility load %, peak temperature, conformal 90% calibration score, and thermal hotspot alerts.
-   - Fixed 404 error by routing `localhost` to `http://localhost:8000`, adding client SCM deterministic fallback, and pushing commit `4bc2ade` to GitHub to update Render/Vercel.
+1. **Clean Workspace Layout with Non-Wrapping Full-Width HUD (`page.tsx` & `OfficeStatsBar.tsx`):**
+   - Moved `OfficeStatsBar` to the **very top spanning 100% of the workspace width**, above both the canvas and the AI Copilot.
+   - All 15 HUD badges (Factory Grid HUD, 415V ON, Load 100kW, Diesel, Petrol, H2, Kerosene, Avg Temp, Refill Pools, Auto-Arrange, Pipes ON, Sim Active, PC2 Console, AI Copilot, + Place Machine, Zoom, Save) fit cleanly in **one single row** without wrapping into 4 lines.
+   - Positioned `RightSideAIChat` directly below `OfficeStatsBar` docked on the right side of the canvas with a clean responsive width (`w-[380px] md:w-[420px] lg:w-[450px] max-w-[50vw] shrink-0 h-full border-l`).
+   - The infinite canvas expands and contracts smoothly with `flex-1 min-w-0 h-full`, receiving maximum vertical and horizontal space.
+
+2. **Full Light & Dark Theme Switching (`RightSideAIChat.tsx`, `ThemeProvider.tsx`, `page.tsx`):**
+   - Refactored `RightSideAIChat.tsx` to fully support both Light and Dark themes via CSS tokens (`var(--bg-primary)`, `var(--bg-secondary)`, `var(--border)`, `var(--text-primary)`, `var(--text-tertiary)`) and `dark:` Tailwind variants.
+   - Cleaned up unrendered raw LaTeX math (`$\boldsymbol{\epsilon}_t$` and `$do(X=x)$`) into readable text (`ε_t` and `do(X = x)`).
+   - Fixed canvas container background in `page.tsx` to use `var(--canvas-bg)` and boundary border to use `var(--border)`, dynamically adapting to Light and Dark modes.
+   - Added `data-theme` attribute and `colorScheme` to `document.documentElement` in `ThemeProvider.tsx`.
+   - Updated AI Copilot toggle button in `OfficeStatsBar.tsx` to render a soft indigo badge in Light mode and dark slate in Dark mode.
 
 
 2. **Full Challenge #44 Four Core Causal Abilities:**
